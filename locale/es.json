@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Navegación compacta de archivos",
-    "description": "Explora o busca archivos del espacio de trabajo junto a la vista previa del documento. Selecciona un archivo para abrirlo en la vista previa integrada. Requiere DeepSeek Harness 0.2.2-rc.5."
+    "title": "Archivos del espacio de trabajo",
+    "description": "Selecciona Archivos del espacio de trabajo encima de Ajustes en la barra lateral izquierda para explorar el directorio de trabajo de la sesión actual o buscar en él. Selecciona un archivo para abrirlo en la vista previa integrada. Requiere DeepSeek Harness 0.2.2-rc.5."
   }
 }

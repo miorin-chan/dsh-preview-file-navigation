@@ -2,21 +2,25 @@
 
 [使用与安装](../README.zh.md) · [English README](../README.md) · [开发约定](../AGENTS.local.md)
 
-## 上游与兼容性
+## 实现与兼容性
 
-本包是 DeepSeek Harness 内置 `@deepseek-ai/dsh-client-ui-sidebar-files` 的本地分发，固定使用上游提交
-[`eb19c634` 的实现](https://github.com/deepseek-ai/deepseek-harness/tree/eb19c634/packages/client/ui-sidebar-files)，
-兼容 **DeepSeek Harness 0.2.2-rc.5**。
-上游实现沿用 [MIT 许可证](../LICENSE)。
+[客户端入口](../src/client/index.tsx) 在 `sidebar.footer.action` 注册左侧边栏入口，
+通过工作区文件服务列出目录和搜索路径。
+选择文件后，右侧边栏通过资源地址打开内置预览。
+内置文件页和 `workspace.files` 命令仍由 DeepSeek Harness 提供。
 
-[Loader 补丁](../cordis.patch.yml) 停用当前配置中的原版文件插件，由本包接管原有的文件标签页和组件 Factory 注册。
-文件标签页继续使用原注册 ID；原版文档预览继续使用这些 Factory 打开和切换文件。
-分发包使用自己的插件和样式表归属。
+本包固定支持 **DeepSeek Harness 0.2.2-rc.5**。
+升级时核对侧栏插槽、工作区文件服务和预览路由，再在一次性配置中验证。
 
-## 更新与验证
+## 构建与验证
 
-运行 [构建脚本](../scripts/build.mjs) 时传入已构建的上游检出目录的绝对路径。
-脚本使用固定提交的构建产物，调整分发包的插件标识和样式表归属，同时保留原文件标签页 ID。
-变更上游版本时，先核对 Loader 条目、Factory 声明和样式归属，再运行上游文件插件测试和本包的测试。
-在一次性配置中验证启用时原版注册由本包接管，停用后原版文件插件恢复，并检查文件页、停靠与浮动预览、目录树、
-搜索、窄布局和文件打开行为。
+在插件目录执行以下命令。
+
+```sh
+pnpm install --ignore-scripts
+pnpm run build
+pnpm run check
+```
+
+在一次性 Web 配置中检查入口是否位于设置上方、文件区能否原位展开和收起、目录是否随当前会话切换，以及预览能否在右侧打开。
+同时验证文件搜索、窄侧栏，以及内置文件页和原有快捷键。

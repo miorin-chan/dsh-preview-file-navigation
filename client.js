@@ -1,2 +1,719 @@
-/*! @deepseek-ai/dsh-client-ui-sidebar-files 0.2.2-rc.5, eb19c634, packages/client/ui-sidebar-files/src/client/index.ts (apply). MIT. */
-window.__ModuleLoader__.load({id:`dsh-preview-file-navigation`,factory:require=>{var module={exports:{}};var exports=module.exports;Object.defineProperty(exports,Symbol.toStringTag,{value:`Module`});let _deepseek_ai_dsh_client_store=require("@deepseek-ai/dsh-client-store");let _deepseek_ai_dsh_client_ui_primitives=require("@deepseek-ai/dsh-client-ui-primitives");require("@deepseek-ai/cordis");let react_jsx_runtime=require("react/jsx-runtime");let react=require("react");const FILES_KIND=`files`;const FILES_ID=`@deepseek-ai/dsh-client-ui-sidebar-files`;function filesDefinition(t){return{id:FILES_ID,kind:FILES_KIND,priority:`builtin`,title:()=>t(`type.label`),guide:[{id:`workspace`,commandId:`workspace.files`,order:10,title:()=>t(`guide.title`),description:()=>t(`guide.description`),icon:_deepseek_ai_dsh_client_ui_primitives.GuideArtworkFiles}]}}const FILE_ADDRESS_PREFIX=`dsh-resource://file/`;function encodeSegment(segment){return encodeURIComponent(segment).replace(/%3A/gi,`:`)}function encodePath(path){return path.split(`/`).map(encodeSegment).join(`/`)}function isDriveSegment(segment){return segment!==void 0&&/^[A-Za-z]:$/.test(segment)}function sessionFileAddress(sessionId,path){const normalized=path.replace(/\\/g,`/`).replace(/^(?:\.\/)+/,``);return`${FILE_ADDRESS_PREFIX}session/${encodeSegment(sessionId)}/${encodePath(normalized)}`}function parseFileAddress(address){try{if(!address.startsWith(FILE_ADDRESS_PREFIX))return void 0;const end=address.search(/[?#]/);const[scope,...rest]=address.slice(20,end===-1?void 0:end).split(`/`);if(scope===`session`){const[id,...segments]=rest;if(id===void 0||id===``||segments.length===0)return void 0;return{scope,sessionId:decodeURIComponent(id),path:segments.map(decodeURIComponent).join(`/`)}}if(scope===`absolute`){const unc=rest[0]===``&&rest.length>1;const segments=(unc?rest.slice(1):rest).map(decodeURIComponent);if(segments.length===0||segments[0]===``)return void 0;if(unc)return{scope,path:`//${segments.join(`/`)}`};return{scope,path:isDriveSegment(segments[0])?segments.join(`/`):`/${segments.join(`/`)}`}}return}catch{return}}function isWindowsStylePath(value){return/^[A-Za-z]:[/\\]/.test(value)||value.startsWith(`\\\\`)}function isAbsoluteWorkspacePath(path){return path.startsWith(`/`)||isWindowsStylePath(path)}function fileAddressFor(sessionId,cwd,path){const normalized=path.replace(/\\/g,`/`);if(!isAbsoluteWorkspacePath(normalized))return sessionFileAddress(sessionId,normalized);const root=cwd===void 0?``:cwd.replace(/\\/g,`/`).replace(/\/+$/,``);if(root!==``&&normalized===root)return sessionFileAddress(sessionId,``);if(root!==``&&normalized.startsWith(`${root}/`))return sessionFileAddress(sessionId,normalized.slice(root.length+1));return sessionFileAddress(sessionId,normalized)}const DEFAULT_NAVIGATOR_WIDTH=260;const NAVIGATOR_MINIMUM=180;const ROW_REMAINDER=120;const PUSH_FROM=560;function navigatorGeometry(available,width){if(available===void 0){const drawn=Math.max(NAVIGATOR_MINIMUM,width);return{minimum:NAVIGATOR_MINIMUM,maximum:drawn,width:drawn}}const maximum=Math.max(0,available-(available>=560?336:ROW_REMAINDER));const minimum=Math.min(NAVIGATOR_MINIMUM,maximum);return{minimum,maximum,width:Math.min(Math.max(minimum,width),maximum)}}function childPath(parent,name){return`${parent.replace(/[/\\]+$/,``)}/${name}`}function windowsRoot(root){const path=root.replace(/\\/g,`/`);return/^[A-Za-z]:\//.test(path)||path.startsWith(`//`)}function locateFile(tree,relativePath){const caseless=windowsRoot(tree.root);const parts=relativePath.split(`/`);const ancestors=[];let parent=tree.root;for(const[index,part]of parts.entries()){const level=tree.levels[parent];if(level?.kind!==`ready`)return{ancestors,current:void 0,pending:level===void 0||level.kind===`loading`};const type=index===parts.length-1?`file`:`directory`;const candidates=level.level.entries.filter(entry=>entry.type===type);const entry=candidates.find(candidate=>candidate.name===part)??(caseless?candidates.find(candidate=>candidate.name.toLowerCase()===part.toLowerCase()):void 0);if(entry===void 0)return{ancestors,current:void 0,pending:level.refreshing===true};const path=childPath(parent,entry.name);if(type===`directory`)ancestors.push({parent,path});parent=path}return{ancestors,current:parent,pending:false}}function relativeFileOf(address,sessionId,root){const file=parseFileAddress(address);if(file?.scope!==`session`||file.sessionId!==sessionId)return void 0;const path=file.path.replace(/\\/g,`/`);const normalized=isAbsoluteWorkspacePath(path)?underRoot(path,root):path;if(normalized===void 0||normalized===``||isAbsoluteWorkspacePath(normalized))return void 0;return normalized.split(`/`).some(part=>part===``||part===`.`||part===`..`)?void 0:normalized}function underRoot(path,root){const prefix=`${root.replace(/\\/g,`/`).replace(/\/+$/,``)}/`;const head=path.slice(0,prefix.length);return(windowsRoot(prefix)?head.toLowerCase()===prefix.toLowerCase():head===prefix)?path.slice(prefix.length):void 0}function pane(state,paneId){state.byPane[paneId]??={open:void 0,width:260,tree:void 0,query:``,searchBarOpen:false,search:void 0};return state.byPane[paneId]}function tree(state,paneId){const started=state.byPane[paneId]?.tree;if(started===void 0)throw new Error(`ui-sidebar-files: no tree for pane "${paneId}"`);return started}function createFilesStore(){return(0,_deepseek_ai_dsh_client_store.defineStore)({init:()=>({byPane:{}}),actions:{autoRefresh:(d,paneId,enabled)=>{tree(d,paneId).autoRefresh=enabled},start:(d,paneId,root)=>{pane(d,paneId).tree={root,levels:{},expanded:[root],autoRefresh:true}},loading:(d,paneId,path)=>{const state=tree(d,paneId);const level=state.levels[path];if(level?.kind!==`ready`)state.levels[path]={kind:`loading`};else if(level.refreshing!==true)state.levels[path]={...level,refreshing:true}},loaded:(d,paneId,path,level)=>{const state=tree(d,paneId);const previous=state.levels[path];if(previous?.kind===`ready`){const directories=new Set(level.entries.filter(entry=>entry.type===`directory`).map(entry=>entry.name));for(const entry of previous.level.entries){if(entry.type!==`directory`||directories.has(entry.name))continue;const removed=childPath(path,entry.name);state.expanded=state.expanded.filter(value=>value!==removed&&!value.startsWith(`${removed}/`));state.levels=Object.fromEntries(Object.entries(state.levels).filter(([key])=>key!==removed&&!key.startsWith(`${removed}/`)))}}state.levels[path]={kind:`ready`,level}},failed:(d,paneId,path,failure)=>{const state=tree(d,paneId);const level=state.levels[path];state.levels[path]=level?.kind===`ready`?{kind:`ready`,level:level.level,failure}:{kind:`failed`,failure};const below=`${path.replace(/[/\\]+$/,``)}/`;for(const[key,kept]of Object.entries(state.levels)){if(!key.startsWith(below)||kept.kind!==`ready`||kept.refreshing!==true)continue;state.levels[key]=kept.failure===void 0?{kind:`ready`,level:kept.level}:{kind:`ready`,level:kept.level,failure:kept.failure}}},toggled:(d,paneId,path)=>{const state=tree(d,paneId);const at=state.expanded.indexOf(path);if(at>=0)state.expanded.splice(at,1);else state.expanded.push(path)},shown:(d,paneId,open)=>{pane(d,paneId).open=open},searchBarShown:(d,paneId,open)=>{pane(d,paneId).searchBarOpen=open},resized:(d,paneId,width)=>{pane(d,paneId).width=width},forget:(d,paneId)=>{d.byPane=Object.fromEntries(Object.entries(d.byPane).filter(([id])=>id!==paneId))},queried:(d,paneId,query)=>{const state=pane(d,paneId);state.query=query;if(query.trim()===``)state.search=void 0},searching:(d,paneId)=>{const state=d.byPane[paneId];const result=state?.search?.result;if(state!==void 0&&state.query.trim()!==``)state.search={pending:true,result:result?.kind===`failed`?void 0:result}},searched:(d,paneId,result)=>{const state=d.byPane[paneId];if(state!==void 0&&state.query.trim()!==``)state.search={pending:false,result}},searchToggled:(d,paneId,path)=>{const result=d.byPane[paneId]?.search?.result;if(result?.kind!==`found`)return;const at=result.tree.expanded.indexOf(path);if(at>=0)result.tree.expanded.splice(at,1);else result.tree.expanded.push(path)}}})}var RemoteError=class extends Error{code;details;isDSHRemoteError=true;constructor(code,message,details,options){super(message,options);this.code=code;this.details=details;this.name=`RemoteError`}};var DirectoryNode=class DirectoryNode{path;load;watch;failed;restore;children=new Map;controller=new AbortController;signal;task;reading;dirty=false;initialized=false;automatic=true;constructor(path,load,watch,failed,lifetime,restore=[]){this.path=path;this.load=load;this.watch=watch;this.failed=failed;this.restore=restore;this.signal=AbortSignal.any([lifetime,this.controller.signal])}open(){this.task??=this.follow();return this}find(path){if(path===this.path)return this;for(const child of this.children.values()){const found=child.find(path);if(found!==void 0)return found}}setExpanded(expanded){this.restore=expanded;for(const child of this.children.values())child.setExpanded(expanded)}expand(path,restore=[]){if(this.signal.aborted)return void 0;let child=this.children.get(path);if(child===void 0){child=new DirectoryNode(path,this.load,this.watch,this.failed,this.signal,restore);child.automatic=this.automatic;this.children.set(path,child)}return child.open()}async collapse(path){this.restore=this.restore.filter(value=>value!==path&&!value.startsWith(`${path}/`));const child=this.children.get(path);this.children.delete(path);await child?.close()}setAutomatic(enabled){this.automatic=enabled;if(enabled&&this.dirty)this.refresh();for(const child of this.children.values())child.setAutomatic(enabled)}refresh(){this.dirty=true;this.reading??=this.read();return this.reading}async refreshTree(){await this.refresh();await Promise.all([...this.children.values()].map(child=>child.refreshTree()))}async close(){this.controller.abort();await Promise.all([this.task,this.reading,...[...this.children.values()].map(child=>child.close())]);this.children.clear()}async follow(){try{for await(const _event of this.watch(this.path,this.signal)){this.dirty=true;if(!this.initialized||this.automatic)this.refresh()}}catch(error){if(!this.signal.aborted){if(!this.initialized)await this.refresh();if(!(typeof error===`object`&&error!==null&&`code`in error&&error.code===`workspace-file/watch-unsupported`))this.failed(this.path,error)}}}async read(){const readAgain=()=>this.dirty&&this.automatic&&!this.signal.aborted;try{do{this.dirty=false;const level=await this.load(this.path,this.signal);if(this.signal.aborted||level===void 0)return;this.initialized=true;const directories=new Set(level.entries.filter(entry=>entry.type===`directory`).map(entry=>`${this.path.replace(/[/\\]+$/,``)}/${entry.name}`));for(const path of this.children.keys())if(!directories.has(path))await this.collapse(path);for(const path of directories)if(this.restore.includes(path))this.expand(path,this.restore);this.restore=[]}while(readAgain())}finally{this.reading=void 0}}};const FULLSCREEN_QUERY=`(width < 768px)`;const NAVIGATOR_ROW=`[data-files-path] > div > button`;function rowPath(target){return target instanceof HTMLElement&&target.matches(`[data-files-path] > div > button`)?target.closest(`[data-files-path]`)?.dataset.filesPath:void 0}const DEFAULT_EXCLUDED_PATHS=[`.git`,`.hg`,`.next`,`.pnpm-store`,`.svn`,`.turbo`,`.yarn`,`build`,`coverage`,`dist`,`node_modules`,`.DS_Store`,`.Spotlight-V100`,`.Trashes`,`.fseventsd`,`Thumbs.db`,`desktop.ini`,`$RECYCLE.BIN`,`System Volume Information`];const GLOB=/[*?[\]{}!]/;function normalizeRulePath(input){const slashed=input.trim().replace(/\\/g,`/`);if(slashed===``)return{kind:`invalid`,reason:`empty`};if(slashed.includes(`\0`))return{kind:`invalid`,reason:`nul`};const relative=slashed.replace(/\/{2,}/g,`/`).replace(/^(?:\s|\.\/)+/,``);if(slashed.startsWith(`/`)||/^(?:\/|~|[A-Za-z]:)/.test(relative))return{kind:`invalid`,reason:`absolute`};const path=relative.replace(/^(.*[^\s/])?[\s/]*$/s,`$1`);if(GLOB.test(path))return{kind:`invalid`,reason:`glob`};if(path===``)return{kind:`invalid`,reason:`empty`};if(path.split(`/`).some(segment=>segment===`.`||segment===`..`))return{kind:`invalid`,reason:`parent`};return{kind:`ok`,path}}function defaultRules(){return DEFAULT_EXCLUDED_PATHS.map(path=>({path,enabled:true}))}function defaultSearchPreferences(){return{rules:defaultRules(),showHidden:false,respectGitignore:true}}function addRule(rules,input){const normalized=normalizeRulePath(input);if(normalized.kind===`invalid`)return normalized;const{path}=normalized;return{kind:`ok`,rules:[{path,enabled:true},...rules.filter(rule=>rule.path!==path)]}}function removeRule(rules,path){return rules.filter(rule=>rule.path!==path)}function setRuleEnabled(rules,path,enabled){return rules.map(rule=>rule.path===path&&rule.enabled!==enabled?{path,enabled}:rule)}function enabledPaths(rules){return rules.filter(rule=>rule.enabled).map(rule=>rule.path)}function isDefaultRules(rules){return rules.length===DEFAULT_EXCLUDED_PATHS.length&&rules.every((rule,index)=>rule.path===DEFAULT_EXCLUDED_PATHS[index]&&rule.enabled)}function readSearchPreferences(value){const defaults=defaultSearchPreferences();if(typeof value!==`object`||value===null||Array.isArray(value))return defaults;const field=name=>Object.hasOwn(value,name)?Object.getOwnPropertyDescriptor(value,name)?.value:void 0;const rules=field(`rules`);const showHidden=field(`showHidden`);const respectGitignore=field(`respectGitignore`);return{rules:Array.isArray(rules)?readRules(rules):defaults.rules,showHidden:typeof showHidden===`boolean`?showHidden:defaults.showHidden,respectGitignore:typeof respectGitignore===`boolean`?respectGitignore:defaults.respectGitignore}}function readRules(rules){const parsed=[];for(const rule of rules){if(typeof rule!==`object`||rule===null||!(`path`in rule)||!(`enabled`in rule))continue;const{path,enabled}=rule;if(typeof path!==`string`||typeof enabled!==`boolean`)continue;const normalized=normalizeRulePath(path);if(normalized.kind===`invalid`||parsed.some(kept=>kept.path===normalized.path))continue;parsed.push({path:normalized.path,enabled})}return parsed}function changedSearchPreferences(preferences){const defaults=defaultSearchPreferences();const changed={};if(!isDefaultRules(preferences.rules))changed.rules=preferences.rules.map(rule=>({path:rule.path,enabled:rule.enabled}));if(preferences.showHidden!==defaults.showHidden)changed.showHidden=preferences.showHidden;if(preferences.respectGitignore!==defaults.respectGitignore)changed.respectGitignore=preferences.respectGitignore;return Object.keys(changed).length===0?void 0:changed}function isHiddenEntry(entry){return entry.name.startsWith(`.`)}function buildSearchTree(root,entries){const children=new Map([[root,new Map]]);const matches=new Map;const directory=path=>{const names=children.get(path)??new Map;children.set(path,names);return names};for(const entry of entries){const parts=entry.path.split(`/`);let parent=root;for(const[index,name]of parts.entries()){const matched=index===parts.length-1;const type=matched?entry.type:`directory`;const names=directory(parent);const existing=names.get(name);const named=existing??{name,type};if(existing===void 0)names.set(name,named);if(type===`directory`)named.type=type;if(matched)matches.set(entry.path,named);parent=childPath(parent,name);if(type===`directory`)directory(parent)}}const levels={};for(const[path,names]of children)levels[path]={kind:`ready`,level:{entries:[...names.values()],truncated:false}};return{autoRefresh:false,root,levels,expanded:[...children.keys()],matches:[...matches].map(([path,{type}])=>({path,type}))}}function matchRanges(name,query){if(query===``)return[];const pattern=new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g,`\\$&`),`giu`);return[...name.matchAll(pattern)].map(match=>[match.index,match.index+match[0].length])}function layoutParent(element){let parent=element.parentElement;while(parent!==null&&getComputedStyle(parent).display===`contents`)parent=parent.parentElement;return parent}function createWatch(remote){return async function*(sessionId,path,signal){const aborted=()=>signal.aborted;if(aborted())return;const stream=remote.$stream({name:`directory ${path}`,open:lifetime=>remote.workspaceFiles.changes(sessionId,path,lifetime),ended:()=>new Error(`Directory watch ended: ${path}`)});const abort=()=>{stream.dispose()};signal.addEventListener(`abort`,abort,{once:true});try{for await(const item of stream){if(aborted())return;if(item.value.kind===`ready`)item.accept();yield item.value.kind}}finally{signal.removeEventListener(`abort`,abort);await stream.dispose()}}}function createList(remote){return async(sessionId,path,signal)=>{const result=await remote.workspaceFiles.list(sessionId,path,signal);if(!result.ok)return result;return{ok:true,value:{entries:result.value.entries,truncated:result.value.truncated}}}}function canOpenOf(registry){let seen=registry.entries();let check=address=>registry.candidates(address).length>0;return{getSnapshot:()=>{const entries=registry.entries();if(entries!==seen){seen=entries;check=address=>registry.candidates(address).length>0}return check},subscribe:listener=>registry.subscribe(listener)}}const REQUESTED={target:`search`};function filesFace(list,watch,canOpen,navigationOf,search,preferences){return(sessionId,store,place)=>{const{actions}=store;const panes=new Map;const record=paneId=>{let pane=panes.get(paneId);if(pane===void 0){pane={lifetime:void 0,mounts:0,tabs:new Set,holds:0,root:void 0,scrollTop:0,searchScrollTop:0,searchQuery:``,following:void 0,searchOpened:void 0,searching:void 0,input:void 0,revealed:void 0,revealing:void 0,drawn:void 0,current:void 0,scrollToCurrent:false,treeFocus:void 0,focus:void 0,show:false,width:(0,_deepseek_ai_dsh_client_store.createSnapshotStore)(void 0),navigator:void 0,closable:false,unobserve:void 0,toggle:void 0};panes.set(paneId,pane)}return pane};const homes=new Map;const forget=(paneId,pane)=>{pane.lifetime?.abort();pane.root?.close();pane.root=void 0;pane.unobserve?.();endSearch(pane);panes.delete(paneId);actions.forget(paneId)};const settle=(paneId,pane)=>{if(pane.mounts>0||pane.tabs.size>0)return;queueMicrotask(()=>{if(pane.mounts===0&&pane.tabs.size===0&&panes.get(paneId)===pane)forget(paneId,pane)})};const leave=(tabId,home)=>{home.pane.tabs.delete(tabId);settle(home.paneId,home.pane)};const load=async(paneId,path,signal)=>{const aborted=()=>signal.aborted;if(aborted())return void 0;actions.loading(paneId,path);const result=await list(sessionId,path,signal);if(aborted())return void 0;if(result.ok)actions.loaded(paneId,path,result.value);else actions.failed(paneId,path,result.error);return result.ok?result.value:void 0};let batching=false;const batch=write=>{batching=true;try{write()}finally{batching=false}};const relisting=(paneId,paths)=>{for(const path of paths)if(store.getSnapshot().byPane[paneId]?.tree?.levels[path]?.kind===`ready`)actions.loading(paneId,path)};const drop=paneId=>{const pane=panes.get(paneId);if(pane!==void 0&&pane.lifetime===void 0)settle(paneId,pane)};const expand=(paneId,parentPath,path,expanded,manual)=>{const pane=panes.get(paneId);const root=pane?.root;if(pane===void 0||root===void 0)return;const parent=root.find(parentPath);if(parent===void 0&&!expanded.includes(parentPath))return;const collapsing=expanded.includes(path);if(manual&&collapsing&&pane.revealing!==void 0){pane.revealed=pane.revealing;pane.revealing=void 0}const next=collapsing?expanded.filter(value=>value!==path):[...expanded,path];root.setExpanded(next);if(collapsing)parent?.collapse(path);else parent?.expand(path,next);batch(()=>{actions.toggled(paneId,path);if(!collapsing)relisting(paneId,next.filter(value=>value===path||value.startsWith(childPath(path,``))))});reveal()};const resultsShown=paneId=>store.getSnapshot().byPane[paneId]?.search!==void 0;const endSearch=pane=>{pane.searchQuery=``;pane.searchOpened=void 0;pane.searchScrollTop=0;pane.following?.stop();pane.following=void 0;pane.searching?.abort();pane.searching=void 0};const runSearch=(paneId,pane,cwd)=>{pane.searching?.abort();const controller=new AbortController;pane.searching=controller;const query=pane.searchQuery;const{rules,showHidden,respectGitignore}=preferences.source(cwd).getSnapshot();const excludedPaths=enabledPaths(rules);actions.searching(paneId);const settle=result=>{if(pane.searching!==controller)return;pane.searching=void 0;pane.searchScrollTop=0;if(pane.drawn!==void 0)pane.drawn.body.scrollTop=0;actions.searched(paneId,result)};search(sessionId,{query,excludedPaths,includeHidden:showHidden,respectGitignore},controller.signal).then(answer=>{settle(answer.ok?{kind:`found`,query,tree:buildSearchTree(cwd,answer.value.matches),count:answer.value.matches.length,truncated:answer.value.truncated,incomplete:answer.value.incomplete,hiddenLeftOut:!showHidden,excluded:excludedPaths.length>0,ignored:respectGitignore}:{kind:`failed`,query,failure:answer.error})}).catch(error=>{settle({kind:`failed`,query,failure:new RemoteError(`gateway/internal`,error instanceof Error?error.message:String(error),{})})})};const searchAgain=paneId=>{const pane=panes.get(paneId);if(pane?.following===void 0)return;runSearch(paneId,pane,pane.following.cwd)};const follow=(paneId,pane,cwd)=>{if(pane.following?.cwd===cwd)return;pane.following?.stop();const source=preferences.source(cwd);let seen=source.getSnapshot();pane.following={cwd,stop:source.subscribe(()=>{const now=source.getSnapshot();if(now===seen)return;seen=now;runSearch(paneId,pane,cwd)})}};const focusInput=pane=>{pane.focus=void 0;queueMicrotask(()=>{pane.input?.focus()})};const focusTree=pane=>{const handoff={target:`tree`};pane.focus=handoff;queueMicrotask(()=>{if(pane.focus!==handoff)return;pane.focus=void 0;(pane.current??pane.drawn?.body)?.focus()})};const step=(paneId,pane)=>{const address=pane.revealing;const tree=store.getSnapshot().byPane[paneId]?.tree;if(address===void 0||tree===void 0||pane.root===void 0)return;const path=relativeFileOf(address,sessionId,tree.root);const location=path===void 0?void 0:locateFile(tree,path);const next=location?.ancestors.find(ancestor=>!tree.expanded.includes(ancestor.path));if(next!==void 0){expand(paneId,next.parent,next.path,tree.expanded,false);return}if(location?.pending===true)return;pane.revealing=void 0;pane.revealed=address;if(location?.current===void 0)return;if(pane.current===void 0)pane.scrollToCurrent=true;else pane.current.scrollIntoView({block:`nearest`,inline:`nearest`})};const reveal=()=>{for(const[paneId,pane]of panes)if(pane.revealing!==void 0)step(paneId,pane)};store.subscribe(()=>{if(!batching)reveal()});const open=(paneId,pane,signal,root)=>{if(pane.root?.path===root)return;pane.root?.close();const tree=store.getSnapshot().byPane[paneId]?.tree;const kept=tree?.root===root?tree:void 0;if(kept===void 0){actions.start(paneId,root);pane.scrollTop=0;pane.treeFocus=void 0;pane.revealed=void 0;pane.revealing=pane.drawn?.address}const node=new DirectoryNode(root,(path,lifetime)=>load(paneId,path,lifetime),(path,lifetime)=>watch(sessionId,path,lifetime),(path,error)=>{if(pane.root===node)actions.failed(paneId,path,new RemoteError(`gateway/internal`,error instanceof Error?error.message:String(error),{}))},signal,kept?.expanded);if(kept!==void 0)node.setAutomatic(kept.autoRefresh);pane.root=node;node.open();if(kept!==void 0)batch(()=>{relisting(paneId,kept.expanded)});step(paneId,pane)};const answerNavigation=home=>{if(home.mounts===0)return;const navigation=home.navigation.getSnapshot();if(navigation.revision<=home.revision)return;const{pane,paneId}=home;if(store.getSnapshot().byPane[paneId]?.open!==true){home.revision=navigation.revision;return}const navigator=pane.navigator;if(navigator===void 0||pane.drawn?.address!==navigation.address)return;const row=layoutParent(navigator);if(row===null)return;home.revision=navigation.revision;const window=row.ownerDocument.defaultView;if(pane.closable&&(row.getBoundingClientRect().width<400||typeof window?.matchMedia===`function`&&window.matchMedia(`(width < 768px)`).matches))face.hide(paneId)};const answerDrawn=pane=>{for(const home of homes.values())if(home.pane===pane)answerNavigation(home)};const face={attach(paneId,tabId,tabSignal){if(tabSignal.aborted){drop(paneId);return()=>{}}const pane=record(paneId);pane.lifetime??=new AbortController;if(pane.show){pane.show=false;if(pane.navigator===void 0||pane.closable)actions.shown(paneId,true);else actions.searchBarShown(paneId,true)}pane.mounts+=1;let home=homes.get(tabId);if(home===void 0){const first={paneId,pane,mounts:0,revision:0,navigation:navigationOf(sessionId,tabId)};home=first;homes.set(tabId,first);const unsubscribe=first.navigation.subscribe(()=>{answerNavigation(first)});tabSignal.addEventListener(`abort`,()=>{unsubscribe();homes.delete(tabId);leave(tabId,first)},{once:true})}else if(home.pane!==pane){leave(tabId,home);home.paneId=paneId;home.pane=pane}home.mounts+=1;pane.tabs.add(tabId);answerNavigation(home);let attached=true;return()=>{if(!attached)return;attached=false;pane.mounts-=1;home.mounts-=1;settle(paneId,pane)}},placeBeside:tabId=>place(tabId,face),hold(paneId,root){const pane=panes.get(paneId);if(pane?.lifetime===void 0)return()=>{};pane.holds+=1;open(paneId,pane,pane.lifetime.signal,root);let held=true;return()=>{if(!held)return;held=false;pane.holds-=1;queueMicrotask(()=>{if(pane.holds>0)return;pane.root?.close();pane.root=void 0})}},refresh:paneId=>{panes.get(paneId)?.root?.refreshTree();searchAgain(paneId)},setAutoRefresh:(paneId,enabled)=>{actions.autoRefresh(paneId,enabled);panes.get(paneId)?.root?.setAutomatic(enabled)},toggle:(paneId,parentPath,path,expanded)=>{expand(paneId,parentPath,path,expanded,true)},scrolled:(paneId,scrollTop)=>{const pane=panes.get(paneId);if(pane?.lifetime===void 0)return;if(resultsShown(paneId))pane.searchScrollTop=scrollTop;else pane.scrollTop=scrollTop},hide(paneId){const pane=panes.get(paneId);if(pane?.lifetime===void 0)return;const navigator=pane.navigator;const held=pane.focus!==void 0||navigator?.contains(navigator.ownerDocument.activeElement)===true;pane.focus=void 0;actions.shown(paneId,false);if(held)queueMicrotask(()=>{panes.get(paneId)?.toggle?.focus()})},focus(paneId){const pane=panes.get(paneId);if(pane===void 0)return;if(pane.lifetime===void 0)pane.show=true;else if(pane.navigator===void 0||pane.closable)actions.shown(paneId,true);else actions.searchBarShown(paneId,true);if(pane.input===void 0)pane.focus=REQUESTED;else focusInput(pane)},setQuery(paneId,cwd,query){const pane=panes.get(paneId);if(pane?.lifetime===void 0)return;const trimmed=query.trim();if(trimmed===``&&pane.searchQuery!==``&&pane.drawn!==void 0)pane.focus={target:`restore`};else if(trimmed!==``&&pane.searchQuery===``){if(pane.focus?.target===`restore`)pane.focus=void 0;else pane.scrollTop=pane.drawn?.body.scrollTop??pane.scrollTop;pane.revealed=pane.drawn?.address??pane.revealed;pane.revealing=void 0;pane.scrollToCurrent=false}actions.queried(paneId,query);if(trimmed===``){endSearch(pane);return}if(pane.searchQuery===trimmed&&pane.following?.cwd===cwd)return;pane.searchQuery=trimmed;follow(paneId,pane,cwd);runSearch(paneId,pane,cwd)},rememberTreeFocus(paneId,path){const pane=panes.get(paneId);if(pane!==void 0)pane.treeFocus=path},openingSearchResult(paneId,address){const pane=panes.get(paneId);if(pane!==void 0&&pane.drawn?.address!==address)pane.searchOpened=address},toggleSearch:(paneId,path)=>{actions.searchToggled(paneId,path)},retrySearch:searchAgain,setSearchPreferences:(cwd,patch)=>{preferences.update(cwd,patch)},searchDrawn(paneId,input){if(input===null){const pane=panes.get(paneId);if(pane===void 0)return;const gone=pane.input;pane.input=void 0;if(gone===void 0||gone.ownerDocument.activeElement!==gone)return;const handoff={target:`search`};pane.focus=handoff;queueMicrotask(()=>{if(pane.focus===handoff)pane.focus=void 0});return}const pane=record(paneId);pane.input=input;if(pane.focus?.target===`search`)focusInput(pane)},bodyDrawn(paneId,address,body){if(body===null){const pane=panes.get(paneId);if(pane===void 0)return;const gone=pane.drawn?.body;pane.drawn=void 0;pane.revealing=void 0;pane.scrollToCurrent=false;drop(paneId);if(pane.focus?.target===`restore`||gone?.contains(gone.ownerDocument.activeElement)!==true)return;const handoff={target:`tree`};pane.focus=handoff;queueMicrotask(()=>{if(pane.focus===handoff)pane.focus=void 0});return}const pane=record(paneId);pane.drawn={body,address};const searching=resultsShown(paneId);body.scrollTop=searching?pane.searchScrollTop:pane.scrollTop;if(pane.focus?.target===`restore`&&!searching){const handoff=pane.focus;queueMicrotask(()=>{if(pane.focus!==handoff||pane.drawn?.body!==body)return;pane.focus=void 0;const row=[...body.querySelectorAll(NAVIGATOR_ROW)].find(node=>rowPath(node)===pane.treeFocus);const viewport=body.getBoundingClientRect();const bounds=row?.getBoundingClientRect();(bounds!==void 0&&viewport.height>0&&(bounds.bottom<=viewport.top||bounds.top>=viewport.bottom)?body:row??pane.input??body).focus({preventScroll:true})})}else if(pane.focus?.target===`tree`)focusTree(pane);if(pane.searchOpened===address){pane.searchOpened=void 0;pane.revealed=address}pane.revealing=pane.revealed===address?void 0:address;step(paneId,pane)},currentDrawn(paneId,row){if(row===null){const pane=panes.get(paneId);if(pane!==void 0)pane.current=void 0;drop(paneId);return}const pane=record(paneId);pane.current=row;if(!pane.scrollToCurrent)return;pane.scrollToCurrent=false;row.scrollIntoView({block:`nearest`,inline:`nearest`})},navigatorDrawn(paneId,navigator,closable){const pane=navigator===null?panes.get(paneId):record(paneId);if(pane===void 0)return;pane.unobserve?.();pane.unobserve=void 0;pane.navigator=navigator??void 0;pane.closable=closable;if(navigator===null){drop(paneId);return}const row=layoutParent(navigator);if(row===null)return;const document=row.ownerDocument;let edge;const handOff=()=>{const held=edge;if(held===void 0)return;const active=document.activeElement;if(active!==held&&active!==document.body&&active!==null){edge=void 0;return}if(held.isConnected&&getComputedStyle(held).display!==`none`){if(active!==held)edge=void 0;return}edge=void 0;focusTree(pane)};const focusin=event=>{edge=event.target instanceof Element&&event.target.hasAttribute(`data-files-navigator-resize`)?event.target:void 0};const focusout=event=>{if(event.relatedTarget===null)queueMicrotask(handOff);else edge=void 0};const viewport=closable&&typeof matchMedia===`function`?matchMedia(FULLSCREEN_QUERY):void 0;let filling=false;const hidden=element=>getComputedStyle(element).visibility===`hidden`;let covered;const release=event=>{const target=event.target;covered=event.relatedTarget===null&&target instanceof Element&&!navigator.contains(target)&&hidden(target)?target:void 0};const forget=()=>{covered=void 0};const measure=()=>{const active=document.activeElement;const blurred=covered;covered=void 0;const width=row.getBoundingClientRect().width;const fills=closable&&(width<400||viewport?.matches===true);const entering=fills&&!filling;filling=fills;pane.width.set(width);answerDrawn(pane);const inContent=active!==null&&row.contains(active)&&!navigator.contains(active);const blurredByFill=blurred!==void 0&&(active===null||active===document.body)&&row.contains(blurred)&&hidden(blurred);if(entering&&store.getSnapshot().byPane[paneId]?.open===true&&(inContent||blurredByFill)&&pane.focus===void 0)focusTree(pane);if(edge!==void 0)queueMicrotask(handOff)};const close=event=>{if(event.key!==`Escape`||event.defaultPrevented||event.isComposing||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;if(!(event.target instanceof Node)||!row.contains(event.target))return;event.preventDefault();pane.toggle?.focus();actions.shown(paneId,false)};measure();const observer=new ResizeObserver(measure);observer.observe(row);viewport?.addEventListener(`change`,measure);if(closable){document.addEventListener(`keydown`,close);row.addEventListener(`focusout`,release);document.addEventListener(`focusin`,forget,true);document.addEventListener(`pointerdown`,forget,true);window.addEventListener(`blur`,forget)}navigator.addEventListener(`focusin`,focusin);navigator.addEventListener(`focusout`,focusout);pane.unobserve=()=>{observer.disconnect();viewport?.removeEventListener(`change`,measure);document.removeEventListener(`keydown`,close);row.removeEventListener(`focusout`,release);document.removeEventListener(`focusin`,forget,true);document.removeEventListener(`pointerdown`,forget,true);window.removeEventListener(`blur`,forget);navigator.removeEventListener(`focusin`,focusin);navigator.removeEventListener(`focusout`,focusout)}},toggleDrawn(paneId,toggle){if(toggle!==null){record(paneId).toggle=toggle;return}const pane=panes.get(paneId);if(pane!==void 0)pane.toggle=void 0;drop(paneId)},hooks:{canOpen},keyedHooks:{rowWidth:paneId=>record(paneId).width,searchPreferences:cwd=>preferences.source(cwd)}};return face}}function createSearch(remote){return(sessionId,request,signal)=>remote.workspaceFiles.search(sessionId,request,signal)}function r(e){var t,f,n=``;if(`string`==typeof e||`number`==typeof e)n+=e;else if(`object`==typeof e)if(Array.isArray(e)){var o=e.length;for(t=0;t<o;t++)e[t]&&(f=r(e[t]))&&(n&&(n+=` `),n+=f)}else for(f in e)e[f]&&(n&&(n+=` `),n+=f);return n}function clsx(){for(var e,t,f=0,n=``,o=arguments.length;f<o;f++)(e=arguments[f])&&(t=r(e))&&(n&&(n+=` `),n+=t);return n}const css$1=`.KH5JxG_level{margin:0;padding:0;list-style:none}.KH5JxG_level .KH5JxG_level{padding-left:18px}@container (width>=0){:where([data-files-navigator]) .KH5JxG_level .KH5JxG_level{padding-inline-start:13px;position:relative}:where([data-files-navigator]) .KH5JxG_level .KH5JxG_level:before{border-inline-start:.5px solid var(--dsw-alias-border-l3);pointer-events:none;content:"";position:absolute;inset-block:0;inset-inline-start:18px}}@container (width<220px){:where([data-files-navigator]) .KH5JxG_level .KH5JxG_level{padding-inline-start:10px}}.KH5JxG_item{margin:0;padding:0}.KH5JxG_row{border-radius:var(--dsw-radius-md);align-items:center;width:100%;min-width:0;display:flex}.KH5JxG_action{min-width:0;color:inherit;font:inherit;text-align:left;border-radius:var(--dsw-radius-md);cursor:pointer;background:0 0;border:0;flex:1;align-items:center;gap:6px;padding:5px 10px;display:flex}.KH5JxG_accessory:empty{display:none}.KH5JxG_accessory{flex:none;align-items:center;padding-right:10px;display:flex}@media (hover:hover){.KH5JxG_row:hover{background:var(--dsw-alias-interactive-bg-hover)}.KH5JxG_current:hover{background:var(--dsw-alias-interactive-bg-active)}}.KH5JxG_current{background:var(--dsw-alias-interactive-bg-active)}.KH5JxG_icon{color:var(--dsw-alias-label-tertiary);flex:none}.KH5JxG_fileIcon{flex:none}.KH5JxG_name{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.KH5JxG_searchAction{align-items:flex-start}.KH5JxG_staticDirectory{cursor:default}.KH5JxG_searchAction>:is(.KH5JxG_icon,.KH5JxG_fileIcon){margin-top:calc(.75em - 8px)}.KH5JxG_searchLabel{flex-direction:column;min-width:0;display:flex}.KH5JxG_parentPath{color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);align-items:flex-end;display:flex}.KH5JxG_parentPrefix{overflow-wrap:anywhere;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-width:0;display:-webkit-box;overflow:hidden}.KH5JxG_parentTail{max-width:100%;color:var(--dsw-alias-label-secondary);white-space:nowrap;text-overflow:ellipsis;direction:rtl;flex:none;overflow:hidden}@container (width<220px){:where([data-files-navigator]) .KH5JxG_parentPrefix{white-space:nowrap;text-overflow:ellipsis;direction:rtl;display:block}}.KH5JxG_hidden{color:var(--dsw-alias-label-secondary)}.KH5JxG_other{color:var(--dsw-alias-label-tertiary);cursor:default}@media (hover:hover){.KH5JxG_inactive:hover{background:0 0}}.KH5JxG_note{color:var(--dsw-alias-label-tertiary);margin:0;padding:3px 10px;font-size:12px}.KH5JxG_match{color:var(--dsw-alias-state-business-primary);background:0 0}`;const tagId$1=`dsh-preview-file-navigation/FileTree.module.css`;if(typeof document!==`undefined`&&document.querySelector(`style[data-plugin-css=`+JSON.stringify(tagId$1)+`]`)===null){const tag=document.createElement(`style`);tag.dataset.plugin=`dsh-preview-file-navigation`;tag.dataset.pluginCss=tagId$1;tag.textContent=css$1;document.head.appendChild(tag)}var FileTree_module_css_default={"accessory":`KH5JxG_accessory`,"action":`KH5JxG_action`,"current":`KH5JxG_current`,"fileIcon":`KH5JxG_fileIcon`,"hidden":`KH5JxG_hidden`,"icon":`KH5JxG_icon`,"inactive":`KH5JxG_inactive`,"item":`KH5JxG_item`,"level":`KH5JxG_level`,"match":`KH5JxG_match`,"name":`KH5JxG_name`,"note":`KH5JxG_note`,"other":`KH5JxG_other`,"parentPath":`KH5JxG_parentPath`,"parentPrefix":`KH5JxG_parentPrefix`,"parentTail":`KH5JxG_parentTail`,"row":`KH5JxG_row`,"searchAction":`KH5JxG_searchAction`,"searchLabel":`KH5JxG_searchLabel`,"staticDirectory":`KH5JxG_staticDirectory`};function EmptyAccessory(){return null}const byName=new Intl.Collator(void 0,{numeric:true,sensitivity:`base`});function parentOf$1(path,root){const slash=path.lastIndexOf(`/`);return slash<0?root:path.slice(0,slash)}function levelsOf(entries,root){const byPath=new Map;for(const entry of entries)if(entry.path!==root&&!byPath.has(entry.path))byPath.set(entry.path,entry);for(const entry of entries){if(entry.path===root)continue;for(let parent=parentOf$1(entry.path,root);parent!==root&&parent!==``&&!byPath.has(parent);parent=parentOf$1(parent,root))byPath.set(parent,{path:parent,name:parent.slice(parent.lastIndexOf(`/`)+1),meta:{kind:`directory`}})}const groups=new Map;for(const entry of byPath.values()){const parent=parentOf$1(entry.path,root);const group=groups.get(parent);if(group===void 0)groups.set(parent,[entry]);else group.push(entry)}const levels=new Map;for(const[parent,group]of groups)levels.set(parent,group.map(entry=>({entry,kind:entry.meta?.kind??(groups.has(entry.path)?`directory`:`file`)})));return levels}function orderOf(level){return level.map((node,index)=>({node,index})).sort(({node:left},{node:right})=>{const group=Number(right.kind===`directory`)-Number(left.kind===`directory`);return group!==0?group:byName.compare(left.entry.name,right.entry.name)}).map(({index})=>index)}function markedText(text,ranges,offset=0){if(ranges.length===0)return text;const parts=[];let at=0;for(const[start,end]of ranges){const from=Math.max(0,start-offset);const to=Math.min(text.length,end-offset);if(to<=from)continue;if(from>at)parts.push(text.slice(at,from));parts.push((0,react_jsx_runtime.jsx)(`mark`,{className:FileTree_module_css_default.match,children:text.slice(from,to)},from));at=to}if(at<text.length)parts.push(text.slice(at));return parts}function SearchLabel({entry,path,query}){const slash=path.lastIndexOf(`/`);const parent=slash<0?``:path.slice(0,slash);const tail=parent.lastIndexOf(`/`)+1;const pathQuery=query.includes(`/`);const ranges=pathQuery?matchRanges(path,query):[];const name=pathQuery?markedText(entry.name,ranges,slash+1):markedText(entry.name,matchRanges(entry.name,query));return(0,react_jsx_runtime.jsxs)(`span`,{className:FileTree_module_css_default.searchLabel,title:path,children:[(0,react_jsx_runtime.jsx)(`span`,{className:FileTree_module_css_default.name,children:name}),parent!==``&&(0,react_jsx_runtime.jsxs)(`span`,{className:FileTree_module_css_default.parentPath,"data-files-parent-path":true,children:[tail>0&&(0,react_jsx_runtime.jsx)(`span`,{className:FileTree_module_css_default.parentPrefix,children:(0,react_jsx_runtime.jsx)(`bdi`,{dir:`ltr`,children:markedText(parent.slice(0,tail),ranges)})}),(0,react_jsx_runtime.jsx)(`span`,{className:FileTree_module_css_default.parentTail,"data-files-parent-tail":true,children:(0,react_jsx_runtime.jsx)(`bdi`,{dir:`ltr`,children:markedText(parent.slice(tail),ranges,tail)})})]})]})}function Entry({node,tree}){const{input,Accessory}=tree;const{entry,kind}=node;const action=clsx(FileTree_module_css_default.action,entry.meta?.hidden===true&&FileTree_module_css_default.hidden,input.flat&&FileTree_module_css_default.searchAction);const highlight=input.highlight??``;const path=input.flat?entry.path.slice(input.root.length+1):void 0;const label=path!==void 0?(0,react_jsx_runtime.jsx)(SearchLabel,{entry,path,query:highlight}):(0,react_jsx_runtime.jsx)(`span`,{className:FileTree_module_css_default.name,children:markedText(entry.name,matchRanges(entry.name,highlight))});if(kind===`directory`){const collapsible=!input.flat||entry.meta?.collapsible===true;const expanded=collapsible&&tree.expanded.has(entry.path);const menu=input.rowTriggerProps?.(entry,`directory`);return(0,react_jsx_runtime.jsxs)(`li`,{className:FileTree_module_css_default.item,"data-files-entry":`directory`,"data-files-path":entry.path,children:[(0,react_jsx_runtime.jsxs)(`div`,{className:clsx(FileTree_module_css_default.row,!collapsible&&FileTree_module_css_default.inactive),children:[collapsible?(0,react_jsx_runtime.jsxs)(`button`,{type:`button`,className:action,"aria-expanded":expanded,"aria-label":path,title:path,onClick:()=>{input.onToggle(entry,!expanded)},...menu,children:[expanded?(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderOpenRegular,{className:FileTree_module_css_default.icon}):(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderCloseRegular,{className:FileTree_module_css_default.icon}),label]}):(0,react_jsx_runtime.jsxs)(`span`,{className:clsx(action,FileTree_module_css_default.staticDirectory),role:`group`,"aria-label":path,title:path,...menu,children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderCloseRegular,{className:FileTree_module_css_default.icon}),label]}),(0,react_jsx_runtime.jsx)(`div`,{className:FileTree_module_css_default.accessory,children:(0,react_jsx_runtime.jsx)(Accessory,{entry})})]}),expanded&&!input.flat&&(0,react_jsx_runtime.jsx)(`ul`,{className:FileTree_module_css_default.level,children:(0,react_jsx_runtime.jsx)(Level,{path:entry.path,tree})})]})}if(kind===`file`&&input.canOpen?.(entry)!==false){const current=entry.path===input.current;return(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.item,"data-files-entry":`file`,"data-files-path":entry.path,children:(0,react_jsx_runtime.jsxs)(`div`,{className:clsx(FileTree_module_css_default.row,current&&FileTree_module_css_default.current),children:[(0,react_jsx_runtime.jsxs)(`button`,{type:`button`,className:action,"aria-current":current||void 0,"aria-label":path,title:path,ref:current?input.currentRef:void 0,...input.rowTriggerProps?.(entry,`file`),onClick:()=>{input.onOpen(entry)},children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon,{kind:(0,_deepseek_ai_dsh_client_ui_primitives.classifyFileType)(entry.name),size:16,className:FileTree_module_css_default.fileIcon}),label]}),(0,react_jsx_runtime.jsx)(`div`,{className:FileTree_module_css_default.accessory,children:(0,react_jsx_runtime.jsx)(Accessory,{entry})})]})})}const file=kind===`file`;return(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.item,"data-files-entry":kind,"data-files-path":entry.path,children:(0,react_jsx_runtime.jsxs)(`div`,{className:clsx(FileTree_module_css_default.row,FileTree_module_css_default.inactive),children:[(0,react_jsx_runtime.jsxs)(`span`,{className:clsx(action,FileTree_module_css_default.other),"aria-disabled":`true`,title:tree.t(file?`entry.noViewer`:`entry.other`),children:[file&&(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon,{kind:(0,_deepseek_ai_dsh_client_ui_primitives.classifyFileType)(entry.name),size:16,className:FileTree_module_css_default.fileIcon}),label]}),(0,react_jsx_runtime.jsx)(`div`,{className:FileTree_module_css_default.accessory,children:(0,react_jsx_runtime.jsx)(Accessory,{entry})})]})})}const NO_ENTRIES=[];function Level({path,tree}){const{t}=tree;const state=tree.input.directories?.[path];const level=tree.levels.get(path)??NO_ENTRIES;const order=(0,react.useMemo)(()=>orderOf(level),[JSON.stringify(level.map(node=>[node.kind===`directory`,node.entry.name]))]);if(state?.loading===true)return(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.note,"data-files-row":`loading`,children:t(`loading`)});return(0,react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment,{children:[state?.failure!==void 0&&(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.note,"data-files-row":`failed`,children:state.failure}),level.length===0&&state?.failure===void 0&&state?.omitted!==`unmatched`&&(state?.omitted===`hidden`?(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.note,"data-files-row":`hidden-only`,children:t(`emptyHidden`)}):(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.note,"data-files-row":`empty`,children:t(`empty`)})),order.map(index=>level[index]).filter(node=>node!==void 0).map(node=>(0,react_jsx_runtime.jsx)(Entry,{node,tree},node.entry.path)),state?.truncated===true&&(0,react_jsx_runtime.jsx)(`li`,{className:FileTree_module_css_default.note,"data-files-row":`truncated`,children:t(`truncated`)})]})}function FileTreeView({t,useFactorySlot,...input}){const Accessory=useFactorySlot(`accessory`,EmptyAccessory);const tree={levels:(0,react.useMemo)(()=>levelsOf(input.flat?NO_ENTRIES:input.entries,input.root),[input.entries,input.flat,input.root]),expanded:(0,react.useMemo)(()=>new Set(input.expanded),[input.expanded]),input,t,Accessory};return(0,react_jsx_runtime.jsx)(`ul`,{className:FileTree_module_css_default.level,children:input.flat?input.entries.map(entry=>(0,react_jsx_runtime.jsx)(Entry,{node:{entry,kind:entry.meta?.kind??`file`},tree},entry.path)):(0,react_jsx_runtime.jsx)(Level,{path:input.root,tree})})}const FileTree=(0,react.memo)(FileTreeView);const css=`.kV37JG_page{min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-size:var(--dsh-content-font-size-secondary,13px);flex-direction:column;flex:auto;line-height:1.5;display:flex}.kV37JG_content{isolation:isolate;flex:auto;min-width:0;min-height:0;display:flex;position:relative}.kV37JG_navigator{box-sizing:border-box;width:var(--files-navigator-width);--files-search-bar-height:42px;min-width:0;height:100%;min-height:0;color:var(--dsw-alias-label-primary);font-size:var(--dsh-content-font-size-secondary,13px);background:var(--dsw-alias-bg-base);border-left:.5px solid var(--dsw-alias-border-l3);flex-direction:column;flex:none;line-height:1.5;display:flex;position:relative;container-type:inline-size}.kV37JG_wholePage{border-left:0;flex:auto;width:auto}.kV37JG_separator{z-index:1;cursor:col-resize;touch-action:none;width:8px;position:absolute;top:0;bottom:0;left:-4px}.kV37JG_fill{z-index:2;border-left:0;width:auto;height:auto;position:absolute;inset:0}[data-files-navigator-row]:has(>.kV37JG_navigator.kV37JG_fill)>:not(.kV37JG_navigator){visibility:hidden}@media (width<768px){[data-files-navigator-row]:has(>.kV37JG_navigator:not(.kV37JG_wholePage))>:not(.kV37JG_navigator){visibility:hidden}.kV37JG_navigator{z-index:2;border-left:0;width:auto;height:auto;position:absolute;inset:0}.kV37JG_separator{display:none}}@media (width>=768px){.kV37JG_push,.kV37JG_overlay{background:var(--dsw-alias-bg-layer-1);border-radius:var(--dsw-radius-lg);--dsw-elevation-stroke-color:var(--dsw-alias-border-l2);box-shadow:var(--dsw-elevation-prominent);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);border:0}.kV37JG_push{align-self:stretch;height:auto;margin:8px}.kV37JG_overlay{z-index:2;height:auto;position:absolute;top:8px;bottom:8px;right:8px}body[data-ds-dark-theme] .kV37JG_push,body[data-ds-dark-theme] .kV37JG_overlay{--dsw-elevation-stroke-color:var(--dsw-alias-border-l3)}.kV37JG_push .kV37JG_body::-webkit-scrollbar-track,.kV37JG_overlay .kV37JG_body::-webkit-scrollbar-track{margin:var(--dsw-radius-lg) 2px}}.kV37JG_dragging{cursor:col-resize;user-select:none}.kV37JG_header{box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;align-items:center;gap:4px;height:38px;padding:0 6px 0 16px;display:flex}.kV37JG_path{margin-right:12px}.kV37JG_body{scrollbar-gutter:stable;flex:auto;min-height:0;margin-right:2px;padding:8px 0 8px 8px;overflow:auto}.kV37JG_body::-webkit-scrollbar-track{margin:2px}.kV37JG_note{color:var(--dsw-alias-label-tertiary);margin:0;padding:3px 10px;font-size:12px}.kV37JG_emptyNote{align-items:center;gap:2px;display:flex}.kV37JG_infoButton{width:20px;height:20px;color:var(--dsw-alias-label-caption);flex:none;margin-block:-2px;padding:0}.kV37JG_status{flex-direction:column;padding:12px 10px;display:flex}.kV37JG_statusLine{color:var(--dsw-alias-label-secondary);font-size:var(--dsh-content-font-size-secondary,13px);margin:0;line-height:1.6}.kV37JG_tool{width:28px;height:28px;color:var(--dsw-alias-label-secondary);border-radius:var(--dsw-radius-sm);cursor:pointer;background:0 0;border:none;flex:none;justify-content:center;align-items:center;padding:6px;line-height:1;display:inline-flex}.kV37JG_tool svg{width:15px;height:15px}@media (hover:hover){.kV37JG_tool:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}}.kV37JG_tool[aria-pressed=true],.kV37JG_tool[aria-expanded=true]{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}.kV37JG_titleIcon{flex:none}.kV37JG_searchBar{box-sizing:border-box;height:var(--files-search-bar-height);flex:none;padding:8px 8px 4px}.kV37JG_searchField{box-sizing:border-box;background:var(--dsw-alias-bg-layer-1);border:.5px solid var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);align-items:center;gap:2px;height:100%;padding:0 2px;display:flex}.kV37JG_searchField:focus-within{border-color:var(--dsw-alias-state-business-primary)}.kV37JG_searchTool{width:24px;height:24px;padding:4px}.kV37JG_searchTool svg{width:14px;height:14px}.kV37JG_searchInput{min-width:0;color:var(--dsw-alias-label-primary);font:inherit;background:0 0;border:none;outline:none;flex:auto;padding:0 4px}.kV37JG_searchInput::placeholder{color:var(--dsw-alias-label-dimmed)}.kV37JG_searchInput::-webkit-search-cancel-button{display:none}.kV37JG_searchStatus{min-height:18px;color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);flex:none;align-items:center;gap:6px;margin:0;padding:2px 18px 0;display:flex}.kV37JG_searchStatusLine{min-width:0;display:block}.kV37JG_searchSpinner{flex:none}.kV37JG_searchFailure{flex-direction:column;align-items:flex-start;gap:6px;padding-bottom:6px;display:flex}.kV37JG_searchRetry{margin-left:10px}.kV37JG_settingsOption{border-top:none}.kV37JG_searchStatusIdle{min-height:0;padding:0}.kV37JG_settings{top:var(--files-search-bar-height);z-index:3;background:var(--dsw-alias-bg-base);border-radius:var(--dsw-radius-lg);min-height:0;box-shadow:var(--dsw-elevation-prominent);outline:none;flex-direction:column;padding:6px 4px 6px 10px;display:flex;position:absolute;bottom:8px;left:8px;right:8px}.kV37JG_settingsHeader{flex:none;align-items:center;gap:2px;display:flex}.kV37JG_settingsTitle{flex:auto;min-width:0;font-weight:500}.kV37JG_settingsDescription{color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);flex:none;margin:0 0 4px;padding-right:6px}.kV37JG_rule{box-sizing:border-box;border-top:.5px solid var(--dsw-alias-border-l3);flex:none;align-items:center;gap:6px;min-height:32px;margin:0;padding:0 0 0 2px;display:flex}.kV37JG_addRule{padding-right:6px}.kV37JG_addRule .kV37JG_icon{color:var(--dsw-alias-label-tertiary);flex:none}.kV37JG_addRule:focus-within{border-top-color:var(--dsw-alias-state-business-primary)}.kV37JG_ruleInput{min-width:0;color:var(--dsw-alias-label-primary);font:inherit;background:0 0;border:none;outline:none;flex:auto;padding:0}.kV37JG_ruleInput::placeholder{color:var(--dsw-alias-label-dimmed)}.kV37JG_settingsError{color:var(--dsw-alias-state-error-primary);font:var(--dsw-font-xxs-12);flex:none;margin:0 0 4px}.kV37JG_rules{overscroll-behavior:contain;flex:auto;min-height:0;margin:0;padding:0;list-style:none;overflow-y:auto}.kV37JG_ruleLabel{cursor:pointer;flex:auto;align-items:center;gap:6px;min-width:0;display:flex}.kV37JG_ruleCheck{width:14px;height:14px;accent-color:var(--dsw-alias-state-business-primary);flex:none;margin:0 1px}.kV37JG_ruleCheck:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}.kV37JG_ruleName{overflow-wrap:anywhere;min-width:0;padding:6px 0}.kV37JG_ruleOff .kV37JG_ruleName{color:var(--dsw-alias-label-tertiary)}@media (pointer:coarse){.kV37JG_searchTool{width:32px;height:32px}.kV37JG_navigator{--files-search-bar-height:50px}.kV37JG_rule{min-height:44px}.kV37JG_searchInput,.kV37JG_ruleInput{font-size:16px}}`;const tagId=`dsh-preview-file-navigation/FilesBody.module.css`;if(typeof document!==`undefined`&&document.querySelector(`style[data-plugin-css=`+JSON.stringify(tagId)+`]`)===null){const tag=document.createElement(`style`);tag.dataset.plugin=`dsh-preview-file-navigation`;tag.dataset.pluginCss=tagId;tag.textContent=css;document.head.appendChild(tag)}var FilesBody_module_css_default={"addRule":`kV37JG_addRule`,"body":`kV37JG_body`,"content":`kV37JG_content`,"dragging":`kV37JG_dragging`,"emptyNote":`kV37JG_emptyNote`,"fill":`kV37JG_fill`,"header":`kV37JG_header`,"icon":`kV37JG_icon`,"infoButton":`kV37JG_infoButton`,"navigator":`kV37JG_navigator`,"note":`kV37JG_note`,"overlay":`kV37JG_overlay`,"page":`kV37JG_page`,"path":`kV37JG_path`,"push":`kV37JG_push`,"rule":`kV37JG_rule`,"ruleCheck":`kV37JG_ruleCheck`,"ruleInput":`kV37JG_ruleInput`,"ruleLabel":`kV37JG_ruleLabel`,"ruleName":`kV37JG_ruleName`,"ruleOff":`kV37JG_ruleOff`,"rules":`kV37JG_rules`,"searchBar":`kV37JG_searchBar`,"searchFailure":`kV37JG_searchFailure`,"searchField":`kV37JG_searchField`,"searchInput":`kV37JG_searchInput`,"searchRetry":`kV37JG_searchRetry`,"searchSpinner":`kV37JG_searchSpinner`,"searchStatus":`kV37JG_searchStatus`,"searchStatusIdle":`kV37JG_searchStatusIdle`,"searchStatusLine":`kV37JG_searchStatusLine`,"searchTool":`kV37JG_searchTool`,"separator":`kV37JG_separator`,"settings":`kV37JG_settings`,"settingsDescription":`kV37JG_settingsDescription`,"settingsError":`kV37JG_settingsError`,"settingsHeader":`kV37JG_settingsHeader`,"settingsOption":`kV37JG_settingsOption`,"settingsTitle":`kV37JG_settingsTitle`,"status":`kV37JG_status`,"statusLine":`kV37JG_statusLine`,"titleIcon":`kV37JG_titleIcon`,"tool":`kV37JG_tool`,"wholePage":`kV37JG_wholePage`};function SearchSettings({rules,respectGitignore,onRespectGitignore,trigger,onChange,onClose,t}){const[text,setText]=(0,react.useState)(``);const[invalid,setInvalid]=(0,react.useState)(void 0);const add=(0,react.useRef)(null);const title=(0,react.useId)();const error=(0,react.useId)();const keepFocus=()=>{add.current?.focus()};return(0,react_jsx_runtime.jsxs)(`section`,{className:FilesBody_module_css_default.settings,role:`dialog`,"aria-labelledby":title,tabIndex:-1,"data-files-search-settings":true,onKeyDown:event=>{if(event.key!==`Escape`||event.nativeEvent.isComposing)return;event.preventDefault();event.stopPropagation();onClose(true)},onBlur:event=>{const next=event.relatedTarget;if(next instanceof Node&&(event.currentTarget.contains(next)||trigger.current?.contains(next)===true))return;onClose(false)},children:[(0,react_jsx_runtime.jsxs)(`div`,{className:FilesBody_module_css_default.settingsHeader,children:[(0,react_jsx_runtime.jsx)(`span`,{id:title,className:FilesBody_module_css_default.settingsTitle,children:t(`settings.title`)}),!isDefaultRules(rules)&&(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`settings.restore`),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`settings.restore`),"data-files-settings-restore":true,onClick:()=>{keepFocus();onChange(defaultRules())},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular,{})})}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`settings.close`),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`settings.close`),onClick:()=>{onClose(true)},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular,{})})})]}),(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.settingsDescription,children:t(`settings.description`)}),(0,react_jsx_runtime.jsx)(`div`,{className:clsx(FilesBody_module_css_default.rule,FilesBody_module_css_default.settingsOption),children:(0,react_jsx_runtime.jsxs)(`label`,{className:FilesBody_module_css_default.ruleLabel,children:[(0,react_jsx_runtime.jsx)(`input`,{type:`checkbox`,className:FilesBody_module_css_default.ruleCheck,checked:respectGitignore,"data-files-respect-gitignore":true,onChange:event=>{onRespectGitignore(event.target.checked)}}),(0,react_jsx_runtime.jsx)(`span`,{className:FilesBody_module_css_default.ruleName,children:t(`settings.respectGitignore`)})]})}),(0,react_jsx_runtime.jsxs)(`div`,{className:clsx(FilesBody_module_css_default.rule,FilesBody_module_css_default.addRule),children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlusOutlineRegular,{className:FilesBody_module_css_default.icon}),(0,react_jsx_runtime.jsx)(`input`,{ref:add,className:FilesBody_module_css_default.ruleInput,type:`text`,value:text,placeholder:t(`settings.add`),"aria-label":t(`settings.add`),"aria-invalid":invalid!==void 0,"aria-describedby":invalid===void 0?void 0:error,autoComplete:`off`,spellCheck:false,autoFocus:true,onChange:event=>{setText(event.target.value);setInvalid(void 0)},onKeyDown:event=>{if(event.key!==`Enter`||event.nativeEvent.isComposing)return;event.preventDefault();const added=addRule(rules,text);if(added.kind===`invalid`){setInvalid(added.reason);return}onChange(added.rules);setText(``)}})]}),invalid!==void 0&&(0,react_jsx_runtime.jsx)(`p`,{id:error,className:FilesBody_module_css_default.settingsError,role:`alert`,children:t(`settings.invalid.${invalid}`)}),(0,react_jsx_runtime.jsx)(`ul`,{className:FilesBody_module_css_default.rules,children:rules.map(rule=>(0,react_jsx_runtime.jsxs)(`li`,{className:clsx(FilesBody_module_css_default.rule,!rule.enabled&&FilesBody_module_css_default.ruleOff),"data-files-rule":rule.path,children:[(0,react_jsx_runtime.jsxs)(`label`,{className:FilesBody_module_css_default.ruleLabel,children:[(0,react_jsx_runtime.jsx)(`input`,{type:`checkbox`,className:FilesBody_module_css_default.ruleCheck,checked:rule.enabled,"aria-label":t(`settings.toggle`,{path:rule.path}),onChange:event=>{onChange(setRuleEnabled(rules,rule.path,event.target.checked))}}),(0,react_jsx_runtime.jsx)(`span`,{className:FilesBody_module_css_default.ruleName,children:rule.path})]}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`settings.remove`,{path:rule.path}),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`settings.remove`,{path:rule.path}),onClick:()=>{keepFocus();onChange(removeRule(rules,rule.path))},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular,{})})})]},rule.path))})]})}function failureLine(t,failure){switch(failure.code){case`workspace-file/not-found`:return t(`error.notFound`);case`workspace-file/outside-workspace`:return t(`error.outsideWorkspace`);case`workspace-file/not-directory`:return t(`error.notDirectory`);default:return t(`error.unavailable`,{message:failure.message})}}function treeRootOf(root){return root.replace(/[/\\]+$/,``)}function parentOf(tree,path){const parent=path.slice(0,path.lastIndexOf(`/`));return parent===treeRootOf(tree.root)?tree.root:parent}function drawnEntries(level,showHidden){return showHidden?level.entries:level.entries.filter(entry=>!isHiddenEntry(entry))}function workspaceEntries(levels,showHidden){const ready=Object.entries(levels).flatMap(([path,level])=>level.kind===`ready`?[{path,level:level.level}]:[]);const hiddenPrefixes=showHidden?[]:ready.flatMap(({path,level})=>level.entries.filter(entry=>entry.type===`directory`&&isHiddenEntry(entry)).map(entry=>childPath(childPath(path,entry.name),``)));return ready.filter(({path})=>!hiddenPrefixes.some(prefix=>`${path}/`.startsWith(prefix))).flatMap(({path,level})=>drawnEntries(level,showHidden).map(entry=>({path:childPath(path,entry.name),name:entry.name,meta:{kind:entry.type}})))}function workspaceDirectories(tree,t,showHidden){const{root,levels,expanded}=tree;const directories={};const keyOf=path=>path===root?treeRootOf(path):path;for(const path of expanded)directories[keyOf(path)]={loading:true};for(const[path,level]of Object.entries(levels)){const key=keyOf(path);if(level.kind===`loading`)directories[key]={loading:true};else if(level.kind===`failed`)directories[key]={failure:failureLine(t,level.failure)};else{const state={};if(level.failure!==void 0)state.failure=failureLine(t,level.failure);if(level.level.truncated)state.truncated=true;if(level.level.entries.length>0&&drawnEntries(level.level,showHidden).length===0)state.omitted=`hidden`;directories[key]=state}}return directories}function searchEntries(tree,showHidden){const expanded=new Set(tree.expanded);const parents=new Set;const listed=[];for(const{path,type}of tree.matches){if(!showHidden&&path.split(`/`).some(name=>isHiddenEntry({name})))continue;let visible=true;const leaf=path.lastIndexOf(`/`);for(let slash=leaf;slash>0;slash=path.lastIndexOf(`/`,slash-1)){const parent=childPath(tree.root,path.slice(0,slash));parents.add(parent);if(!expanded.has(parent))visible=false}if(visible)listed.push({path:childPath(tree.root,path),name:path.slice(leaf+1),meta:{kind:type}})}return listed.map(entry=>entry.meta?.kind===`directory`&&parents.has(entry.path)?{...entry,meta:{kind:`directory`,collapsible:true}}:entry)}const RESIZE_STEP=20;function navigatorMode(rowWidth){if(rowWidth===void 0)return`overlay`;return rowWidth>=560?`push`:rowWidth>=400?`overlay`:`fill`}function emptyHint(result){const{hiddenLeftOut:hidden,excluded,ignored}=result;if(hidden&&excluded)return ignored?`search.emptyHint.all`:`search.emptyHint.both`;if(hidden)return ignored?`search.emptyHint.hiddenIgnored`:`search.emptyHint.hidden`;if(excluded)return ignored?`search.emptyHint.excludedIgnored`:`search.emptyHint.excluded`;return ignored?`search.emptyHint.ignored`:void 0}function moveAlongRows(event){if(event.defaultPrevented||event.nativeEvent.isComposing)return;if(event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;if(event.key===`ArrowLeft`||event.key===`ArrowRight`){const target=event.target;if(!(target instanceof HTMLElement)||rowPath(target)===void 0)return;const item=target.closest(`[data-files-path]`);if(item===null||item.closest(`[data-files-view="tree"]`)===null)return;const expanded=target.getAttribute(`aria-expanded`);const forward=event.key===`ArrowRight`;if(forward&&expanded===`false`||!forward&&expanded===`true`){event.preventDefault();target.click();return}const next=forward?item.querySelector(`:scope > ul > ${NAVIGATOR_ROW}`):item.parentElement?.closest(`[data-files-path]`)?.querySelector(`:scope > div > button`);if(next!=null){event.preventDefault();next.focus()}return}if(event.key!==`ArrowDown`&&event.key!==`ArrowUp`)return;const stops=[...event.currentTarget.querySelectorAll(`[data-files-search], [data-files-body] ${NAVIGATOR_ROW}`)];const at=stops.findIndex(stop=>stop===event.target);const body=event.target instanceof HTMLElement&&event.target.hasAttribute(`data-files-body`)?event.target:void 0;const top=body?.getBoundingClientRect().top??0;const next=body!==void 0&&event.key===`ArrowDown`?stops.find(stop=>body.contains(stop)&&stop.getBoundingClientRect().bottom>=top):at===-1?void 0:stops[at+(event.key===`ArrowDown`?1:-1)];if(next===void 0)return;event.preventDefault();next.focus()}function SearchNotes({result,t}){const hint=result.count>0?void 0:emptyHint(result);return(0,react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment,{children:[result.count===0&&(0,react_jsx_runtime.jsxs)(`p`,{className:clsx(FilesBody_module_css_default.note,FilesBody_module_css_default.emptyNote),"data-files-row":`search-empty`,children:[(0,react_jsx_runtime.jsx)(`span`,{children:t(`search.empty`)}),hint!==void 0&&(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(hint),side:`bottom`,delayMs:300,maxWidth:300,portal:true,openOnClick:true,children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button,{variant:`ghost`,size:`sm`,className:FilesBody_module_css_default.infoButton,"aria-label":t(`search.emptyHint.label`),"data-files-search-hint":true,children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconInfoOutlineRegular,{size:11,"aria-hidden":`true`})})})]}),result.truncated&&(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.note,"data-files-row":`search-truncated`,children:t(`search.truncated`,{count:String(result.count)})}),result.incomplete&&(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.note,"data-files-row":`search-incomplete`,children:t(`search.incomplete`)})]})}function SearchFailure({failure,onRetry,t}){return(0,react_jsx_runtime.jsxs)(`div`,{className:FilesBody_module_css_default.searchFailure,"data-files-row":`search-failed`,children:[(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.note,role:`alert`,children:t(`search.failed`,{message:failureLine(t,failure)})}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button,{variant:`outline`,size:`sm`,className:FilesBody_module_css_default.searchRetry,"data-files-search-retry":true,onClick:onRetry,children:t(`search.retry`)})]})}function FileNavigator({useTabInfo,page,onOpen,sessionId,useSessions,useStore,actions,useRowWidth,useCanOpen,useSearchPreferences,attach,placeBeside,hold,toggle,scrolled,bodyDrawn,currentDrawn,navigatorDrawn,setQuery,rememberTreeFocus,openingSearchResult,toggleSearch,retrySearch,setSearchPreferences,searchDrawn,t,renderFactorySlot,useContextMenu}){const{tab,panel}=useTabInfo();const{getTriggerProps}=useContextMenu();const paneId=panel.id;const cwd=useSessions(sessions=>sessions.byId[sessionId]?.cwd);const state=useStore(store=>store.byPane[paneId]);const rowWidth=useRowWidth(paneId);const canOpen=useCanOpen(check=>check);const open=page||state?.open===true;const mode=navigatorMode(rowWidth);const tree=state?.tree?.root===cwd?state?.tree:void 0;const preferences=useSearchPreferences(cwd??``)??defaultSearchPreferences();const{showHidden}=preferences;const query=state?.query??``;const searchBarOpen=!page||state?.searchBarOpen===true;const search=state?.search;const pending=search?.pending===true;const result=search?.result;const found=result?.kind===`found`?result:void 0;const[dragging,setDragging]=(0,react.useState)(false);const[draft,setDraft]=(0,react.useState)(void 0);const settings=draft!==void 0;const drag=(0,react.useRef)(void 0);const input=(0,react.useRef)(null);const trigger=(0,react.useRef)(null);const navigatorRef=(0,react.useCallback)(element=>{navigatorDrawn(paneId,element,!page)},[navigatorDrawn,paneId,page]);const resultsShown=search!==void 0;const bodyRef=(0,react.useCallback)(body=>{bodyDrawn(paneId,tab.contentId,body)},[bodyDrawn,paneId,tab.contentId,resultsShown]);const inputRef=(0,react.useCallback)(element=>{input.current=element;searchDrawn(paneId,element)},[searchDrawn,paneId]);const currentRef=(0,react.useCallback)(row=>{currentDrawn(paneId,row)},[currentDrawn,paneId]);(0,react.useEffect)(()=>attach(paneId,tab.id,tab.signal),[attach,paneId,tab.id,tab.signal]);(0,react.useEffect)(()=>page||cwd===void 0?void 0:placeBeside(tab.id),[page,cwd,placeBeside,tab.id]);(0,react.useEffect)(()=>cwd===void 0||!open?void 0:hold(paneId,cwd),[cwd,open,paneId,hold]);const relativePath=tree===void 0?void 0:relativeFileOf(tab.contentId,sessionId,tree.root);const location=(0,react.useMemo)(()=>tree===void 0||relativePath===void 0?void 0:locateFile(tree,relativePath),[tree,relativePath]);const root=tree?.root;const levels=tree?.levels;const expanded=tree?.expanded;const entries=(0,react.useMemo)(()=>levels===void 0?void 0:workspaceEntries(levels,showHidden),[levels,showHidden]);const directories=(0,react.useMemo)(()=>root===void 0||levels===void 0||expanded===void 0?void 0:workspaceDirectories({root,levels,expanded},t,showHidden),[root,levels,expanded,t,showHidden]);const resultTree=found!==void 0&&found.count>0?found.tree:void 0;const resultCurrent=(0,react.useMemo)(()=>resultTree===void 0||relativePath===void 0?void 0:locateFile(resultTree,relativePath).current,[resultTree,relativePath]);const resultEntries=(0,react.useMemo)(()=>resultTree===void 0?void 0:searchEntries(resultTree,showHidden),[resultTree,showHidden]);const view=(0,react.useMemo)(()=>{if(tree===void 0)return void 0;return{root:treeRootOf(tree.root),expanded:tree.expanded,onToggle:entry=>{toggle(paneId,parentOf(tree,entry.path),entry.path,tree.expanded)},onOpen:entry=>{onOpen(fileAddressFor(sessionId,tree.root,entry.path))},canOpen:entry=>canOpen(fileAddressFor(sessionId,tree.root,entry.path)),rowTriggerProps:(entry,kind)=>getTriggerProps(kind===`directory`?{kind,value:{sessionId,path:entry.path}}:{kind,value:{sessionId,path:entry.path,paneId}})}},[tree,paneId,sessionId,toggle,canOpen,onOpen,getTriggerProps]);const resultView=(0,react.useMemo)(()=>view===void 0||resultTree===void 0?void 0:{...view,expanded:resultTree.expanded,onToggle:entry=>{toggleSearch(paneId,entry.path)},onOpen:entry=>{openingSearchResult(paneId,fileAddressFor(sessionId,resultTree.root,entry.path));view.onOpen(entry)}},[view,resultTree,toggleSearch,openingSearchResult,paneId,sessionId]);const closeSettings=(0,react.useCallback)((rules,refocus)=>{setDraft(void 0);if(refocus)trigger.current?.focus();if(cwd!==void 0&&rules!==preferences.rules)setSearchPreferences(cwd,{rules})},[cwd,preferences.rules,setSearchPreferences]);if(cwd===void 0||!open)return null;const geometry=navigatorGeometry(rowWidth,state?.width??260);const shown=page?void 0:mode;const clamp=next=>Math.min(Math.max(next,geometry.minimum),geometry.maximum);const clear=()=>{setQuery(paneId,cwd,``);if(!resultsShown)input.current?.focus()};return(0,react_jsx_runtime.jsxs)(`aside`,{ref:navigatorRef,className:clsx(FilesBody_module_css_default.navigator,shown===void 0?FilesBody_module_css_default.wholePage:FilesBody_module_css_default[shown],dragging&&FilesBody_module_css_default.dragging),style:page?void 0:{"--files-navigator-width":`${geometry.width}px`},"aria-label":t(`guide.title`),"data-files-navigator":paneId,"data-files-navigator-mode":shown,"data-files-state":`tree`,"data-files-root":cwd,onKeyDown:event=>{moveAlongRows(event);if(event.key!==`Escape`||event.defaultPrevented||event.nativeEvent.isComposing||query===``||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;event.preventDefault();event.stopPropagation();if(!searchBarOpen)event.currentTarget.querySelector(`[data-files-body]`)?.focus();clear()},children:[shown!==void 0&&shown!==`fill`&&(0,react_jsx_runtime.jsx)(`div`,{className:FilesBody_module_css_default.separator,role:`separator`,"aria-orientation":`vertical`,"aria-label":t(`navigator.resize`),"aria-valuemin":geometry.minimum,"aria-valuemax":geometry.maximum,"aria-valuenow":geometry.width,tabIndex:0,"data-files-navigator-resize":true,onKeyDown:event=>{const next=event.key===`ArrowLeft`?geometry.width+RESIZE_STEP:event.key===`ArrowRight`?geometry.width-RESIZE_STEP:event.key===`Home`?geometry.minimum:event.key===`End`?geometry.maximum:void 0;if(next===void 0)return;event.preventDefault();actions.resized(paneId,clamp(next))},onPointerDown:event=>{if(event.button!==0)return;event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);drag.current={x:event.clientX,width:geometry.width};setDragging(true)},onPointerMove:event=>{const origin=drag.current;if(origin===void 0)return;actions.resized(paneId,clamp(origin.width+origin.x-event.clientX))},onPointerUp:event=>{event.currentTarget.releasePointerCapture(event.pointerId)},onLostPointerCapture:()=>{drag.current=void 0;setDragging(false)}}),searchBarOpen&&(0,react_jsx_runtime.jsx)(`div`,{className:FilesBody_module_css_default.searchBar,children:(0,react_jsx_runtime.jsxs)(`div`,{className:FilesBody_module_css_default.searchField,children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`search.settings`),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{ref:trigger,type:`button`,className:clsx(FilesBody_module_css_default.tool,FilesBody_module_css_default.searchTool),"aria-label":t(`search.settings`),"aria-haspopup":`dialog`,"aria-expanded":settings,"data-files-search-settings-toggle":true,onMouseDown:event=>{if(settings)event.preventDefault()},onClick:()=>{if(draft===void 0)setDraft(preferences.rules);else closeSettings(draft,true)},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutlineRegular,{})})}),(0,react_jsx_runtime.jsx)(`input`,{ref:inputRef,className:FilesBody_module_css_default.searchInput,type:`search`,value:query,placeholder:t(`search.placeholder`),"aria-label":t(`search.placeholder`),autoComplete:`off`,spellCheck:false,"data-files-search":true,onChange:event=>{setQuery(paneId,cwd,event.target.value)}}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`search.showHidden`),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:clsx(FilesBody_module_css_default.tool,FilesBody_module_css_default.searchTool),"aria-pressed":preferences.showHidden,"aria-label":t(`search.showHidden`),"data-files-show-hidden":true,onClick:()=>{setSearchPreferences(cwd,{showHidden:!preferences.showHidden})},children:preferences.showHidden?(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEyeOutlineRegular,{}):(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconEyeOffOutlineRegular,{})})}),query!==``&&(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`search.clear`),side:`bottom`,portal:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:clsx(FilesBody_module_css_default.tool,FilesBody_module_css_default.searchTool),"aria-label":t(`search.clear`),"data-files-search-clear":true,onClick:clear,children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutlineRegular,{})})})]})}),(0,react_jsx_runtime.jsxs)(`p`,{className:clsx(FilesBody_module_css_default.searchStatus,search===void 0&&FilesBody_module_css_default.searchStatusIdle),"aria-live":`polite`,"data-files-search-status":true,children:[found!==void 0&&(0,react_jsx_runtime.jsx)(`span`,{className:FilesBody_module_css_default.searchStatusLine,children:t(`search.results`,{count:String(found.count)})}),pending&&(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.StateDot,{state:`ongoing`,size:12,className:FilesBody_module_css_default.searchSpinner})]}),(0,react_jsx_runtime.jsx)(`div`,{ref:bodyRef,className:FilesBody_module_css_default.body,tabIndex:-1,"data-files-body":true,"data-files-view":resultsShown?`search`:`tree`,"aria-busy":pending,onFocus:event=>{if(resultsShown)return;const path=rowPath(event.target);if(path!==void 0)rememberTreeFocus(paneId,path)},onScroll:event=>{scrolled(paneId,event.currentTarget.scrollTop)},children:view===void 0||entries===void 0||directories===void 0?(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.note,"data-files-row":`loading`,children:t(`loading`)}):search!==void 0?result?.kind===`failed`?(0,react_jsx_runtime.jsx)(SearchFailure,{failure:result.failure,onRetry:()=>{retrySearch(paneId)},t}):found!==void 0&&(0,react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment,{children:[resultView!==void 0&&resultEntries!==void 0&&renderFactorySlot(`sidebar.files.tree`,{...resultView,entries:resultEntries,flat:true,highlight:found.query,current:resultCurrent,currentRef}),(0,react_jsx_runtime.jsx)(SearchNotes,{result:found,t})]}):renderFactorySlot(`sidebar.files.tree`,{...view,entries,directories,current:location?.current,currentRef})}),searchBarOpen&&draft!==void 0&&(0,react_jsx_runtime.jsx)(SearchSettings,{rules:draft,trigger,onChange:setDraft,respectGitignore:preferences.respectGitignore,onRespectGitignore:respectGitignore=>{setSearchPreferences(cwd,{respectGitignore})},onClose:refocus=>{closeSettings(draft,refocus)},t})]})}function FilesBody(props){const{useTabInfo,sessionId,useSessions,useStore,actions,refresh,focus,placeBeside,setAutoRefresh,renderSlot,renderFactorySlot,t,useContextMenu}=props;const{tab,panel}=useTabInfo();const{getTriggerProps}=useContextMenu();const onOpen=(0,react.useCallback)(address=>{if(panel.isFloating)tab.actions.openResource(address);else tab.actions.openResource(address,{paneId:panel.id})},[tab.actions,panel.id,panel.isFloating]);(0,react.useEffect)(()=>tab.actions.bindCommands({refresh:()=>{refresh(panel.id)}}),[tab.actions,panel.id,refresh]);const cwd=useSessions(sessions=>sessions.byId[sessionId]?.cwd);const autoRefresh=useStore(store=>{const tree=store.byPane[panel.id]?.tree;return tree?.root===cwd?tree?.autoRefresh:void 0});const searchBarOpen=useStore(store=>store.byPane[panel.id]?.searchBarOpen)===true;(0,react.useEffect)(()=>cwd===void 0?void 0:placeBeside(tab.id),[cwd,placeBeside,tab.id]);if(cwd===void 0)return(0,react_jsx_runtime.jsx)(`div`,{className:FilesBody_module_css_default.status,"data-files-state":`no-workspace`,children:(0,react_jsx_runtime.jsx)(`p`,{className:FilesBody_module_css_default.statusLine,children:t(`noWorkspace`)})});const automatic=autoRefresh??true;const navigator=renderFactorySlot(`sidebar.files.navigator`,{useTabInfo,page:true,onOpen});return(0,react_jsx_runtime.jsxs)(`div`,{className:FilesBody_module_css_default.page,"data-files-page":true,children:[(0,react_jsx_runtime.jsxs)(`div`,{className:FilesBody_module_css_default.header,children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.PathLabel,{path:cwd,className:FilesBody_module_css_default.path,"data-files-path":true,...getTriggerProps({kind:`directory`,value:{sessionId,path:cwd}})}),(0,react_jsx_runtime.jsx)(`span`,{hidden:true,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`autoRefresh`),"aria-pressed":automatic,disabled:autoRefresh===void 0,"data-files-auto-refresh":true,title:t(automatic?`autoRefresh.disable`:`autoRefresh.enable`),onClick:()=>{setAutoRefresh(panel.id,!automatic)},children:automatic?(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPauseOutlineRegular,{}):(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconPlayOutlineRegular,{})})}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`reload`),shortcutKeys:tab.refreshShortcut?.keys,side:`bottom`,delayMs:500,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`reload`),"aria-keyshortcuts":tab.refreshShortcut?.aria,"data-files-reload":true,onClick:()=>{refresh(panel.id)},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutlineRegular,{})})}),(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label:t(`search.placeholder`),side:`bottom`,delayMs:500,children:(0,react_jsx_runtime.jsx)(`button`,{type:`button`,className:FilesBody_module_css_default.tool,"aria-label":t(`search.placeholder`),"aria-expanded":searchBarOpen,"data-files-search-toggle":true,onClick:event=>{if(searchBarOpen){event.currentTarget.focus();actions.searchBarShown(panel.id,false)}else focus(panel.id)},children:(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconSearchOutlineRegular,{})})}),renderSlot(`sidebar.right.tab.files.actions`,{absolutePath:cwd})]}),(0,react_jsx_runtime.jsx)(`div`,{className:FilesBody_module_css_default.content,"data-files-content":true,"data-files-navigator-row":true,children:navigator})]})}function FilesTitle({useTabInfo}){const{tab}=useTabInfo();return(0,react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment,{children:[(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.FileTypeIcon,{kind:`folder`,size:16,className:FilesBody_module_css_default.titleIcon}),tab.title]})}const zh={"shortcut.noSession":`请先选择会话`,"type.label":`文件`,"guide.title":`工作区文件`,"guide.description":`浏览会话工作区的文件`,loading:`正在读取…`,empty:`空目录`,emptyHidden:`隐藏项未显示`,truncated:`条目太多，只显示了一部分。`,noWorkspace:`这个会话没有工作区目录。`,reload:`重新读取`,autoRefresh:`自动刷新`,"autoRefresh.enable":`开启自动刷新`,"autoRefresh.disable":`关闭自动刷新`,"entry.other":`这不是文件或目录，没法打开。`,"entry.noViewer":`没有可以打开此文件的查看器。`,"navigator.show":`显示文件树`,"navigator.hide":`隐藏文件树`,"navigator.resize":`调整文件树宽度`,"error.notFound":`这个目录不在了。可能已被移动或删除。`,"error.outsideWorkspace":`这个目录在工作区之外，侧栏不会读取它。`,"error.notDirectory":`这不是一个目录。`,"error.unavailable":`读取失败：{message}`,"search.placeholder":`搜索文件`,"search.settings":`搜索设置`,"search.clear":`清空搜索`,"search.showHidden":`显示隐藏项`,"search.results":`{count} 个结果`,"search.empty":`没有匹配项`,"search.emptyHint.hidden":`隐藏项不会显示。`,"search.emptyHint.excluded":`排除的文件和目录不会显示。`,"search.emptyHint.both":`隐藏项以及排除的文件和目录不会显示。`,"search.emptyHint.ignored":`被忽略文件（如 .gitignore）忽略的文件和目录不会显示。`,"search.emptyHint.hiddenIgnored":`隐藏项，以及被忽略文件（如 .gitignore）忽略的文件和目录不会显示。`,"search.emptyHint.excludedIgnored":`排除的文件和目录，以及被忽略文件（如 .gitignore）忽略的文件和目录不会显示。`,"search.emptyHint.all":`隐藏项、排除的文件和目录，以及被忽略文件（如 .gitignore）忽略的文件和目录不会显示。`,"search.emptyHint.label":`为什么没有匹配项`,"search.truncated":`只显示前 {count} 个结果，请缩小搜索范围。`,"search.incomplete":`文件数超过搜索上限，或部分目录未能读取，因此结果可能不完整。`,"search.failed":`搜索失败：{message}`,"search.retry":`重试`,"settings.title":`排除的文件和目录`,"settings.description":`只影响搜索结果，不影响文件树。`,"settings.respectGitignore":`尊重忽略文件（.gitignore 等）`,"settings.add":`添加文件或目录`,"settings.close":`关闭`,"settings.restore":`还原默认列表`,"settings.remove":`删除 {path}`,"settings.toggle":`排除 {path}`,"settings.invalid.empty":`请输入名称或相对路径。`,"settings.invalid.nul":`路径不能包含 NUL 字符。`,"settings.invalid.absolute":`请使用相对于工作区的路径。`,"settings.invalid.parent":`路径不能包含 . 或 .. 段。`,"settings.invalid.glob":`路径不能包含通配符 * ? [ ] { } !。`};const en={"shortcut.noSession":`Select a session first`,"type.label":`Files`,"guide.title":`Workspace files`,"guide.description":`Browse files in this session's workspace`,loading:`Reading…`,empty:`Empty directory`,emptyHidden:`Hidden entries are not shown`,truncated:`Too many entries, showing only some of them.`,noWorkspace:`This session has no workspace directory.`,reload:`Reload`,autoRefresh:`Auto refresh`,"autoRefresh.enable":`Enable auto refresh`,"autoRefresh.disable":`Disable auto refresh`,"entry.other":`Not a file or a directory, so it cannot be opened.`,"entry.noViewer":`No viewer can open this file.`,"navigator.show":`Show file tree`,"navigator.hide":`Hide file tree`,"navigator.resize":`Resize file tree`,"error.notFound":`That directory is gone. It may have been moved or deleted.`,"error.outsideWorkspace":`That directory is outside the workspace, so the sidebar will not read it.`,"error.notDirectory":`That is not a directory.`,"error.unavailable":`Read failed: {message}`,"search.placeholder":`Search files`,"search.settings":`Search settings`,"search.clear":`Clear search`,"search.showHidden":`Show hidden entries`,"search.results":`Results: {count}`,"search.empty":`No matches`,"search.emptyHint.hidden":`Hidden entries are not shown.`,"search.emptyHint.excluded":`Excluded files and directories are not shown.`,"search.emptyHint.both":`Hidden entries and excluded files and directories are not shown.`,"search.emptyHint.ignored":`Files and directories ignored by ignore files such as .gitignore are not shown.`,"search.emptyHint.hiddenIgnored":`Hidden entries, and files and directories ignored by ignore files such as .gitignore, are not shown.`,"search.emptyHint.excludedIgnored":`Excluded files and directories, and those ignored by ignore files such as .gitignore, are not shown.`,"search.emptyHint.all":`Hidden entries, excluded files and directories, and those ignored by ignore files such as .gitignore, are not shown.`,"search.emptyHint.label":`Why there are no matches`,"search.truncated":`Showing only the first {count} results. Narrow the search to see the rest.`,"search.incomplete":`The search passed its file limit, or some directories could not be read, so results may be incomplete.`,"search.failed":`Search failed: {message}`,"search.retry":`Retry`,"settings.title":`Excluded files and directories`,"settings.description":`Only affects search results, not the file tree.`,"settings.respectGitignore":`Respect ignore files (.gitignore, etc.)`,"settings.add":`Add file or directory`,"settings.close":`Close`,"settings.restore":`Restore default list`,"settings.remove":`Remove {path}`,"settings.toggle":`Exclude {path}`,"settings.invalid.empty":`Enter a name or relative path.`,"settings.invalid.nul":`The path cannot contain a NUL character.`,"settings.invalid.absolute":`Use a path relative to the workspace.`,"settings.invalid.parent":`The path cannot contain . or .. segments.`,"settings.invalid.glob":`The path cannot contain wildcards * ? [ ] { } !.`};const ja={"shortcut.noSession":`先にセッションを選択してください`,"type.label":`ファイル`,"guide.title":`ワークスペースのファイル`,"guide.description":`このセッションのワークスペース内のファイルを参照`,"loading":`読み取り中…`,"empty":`空のディレクトリ`,"emptyHidden":`隠し項目は表示されていません`,"truncated":`エントリが多すぎるため、一部のみ表示しています。`,"noWorkspace":`このセッションにはワークスペースディレクトリがありません。`,"reload":`再読み込み`,"autoRefresh":`自動更新`,"autoRefresh.enable":`自動更新を有効にする`,"autoRefresh.disable":`自動更新を無効にする`,"entry.other":`ファイルでもディレクトリでもないため、開けません。`,"entry.noViewer":`このファイルを開けるビューアーがありません。`,"navigator.show":`ファイルツリーを表示`,"navigator.hide":`ファイルツリーを非表示`,"navigator.resize":`ファイルツリーの幅を調整`,"error.notFound":`そのディレクトリは存在しません。移動または削除された可能性があります。`,"error.outsideWorkspace":`そのディレクトリはワークスペース外のため、サイドバーでは読み取りません。`,"error.notDirectory":`それはディレクトリではありません。`,"error.unavailable":`読み取りに失敗しました: {message}`,"search.placeholder":`ファイルを検索`,"search.settings":`検索設定`,"search.clear":`検索をクリア`,"search.showHidden":`隠し項目を表示`,"search.results":`結果: {count} 件`,"search.empty":`一致する項目はありません`,"search.emptyHint.hidden":`隠し項目は表示されません。`,"search.emptyHint.excluded":`除外したファイルとディレクトリは表示されません。`,"search.emptyHint.both":`隠し項目と、除外したファイルとディレクトリは表示されません。`,"search.emptyHint.ignored":`.gitignore などの無視ファイルで無視されたファイルとディレクトリは表示されません。`,"search.emptyHint.hiddenIgnored":`隠し項目と、.gitignore などの無視ファイルで無視されたファイルとディレクトリは表示されません。`,"search.emptyHint.excludedIgnored":`除外したファイルとディレクトリ、および .gitignore などの無視ファイルで無視された項目は表示されません。`,"search.emptyHint.all":`隠し項目、除外したファイルとディレクトリ、および .gitignore などの無視ファイルで無視された項目は表示されません。`,"search.emptyHint.label":`一致する項目がない理由`,"search.truncated":`最初の {count} 件のみ表示しています。検索範囲を絞り込んでください。`,"search.incomplete":`ファイル数が検索上限を超えたか、一部のディレクトリを読み取れなかったため、結果が不完全な可能性があります。`,"search.failed":`検索に失敗しました: {message}`,"search.retry":`再試行`,"settings.title":`除外するファイルとディレクトリ`,"settings.description":`検索結果にのみ適用され、ファイルツリーには影響しません。`,"settings.respectGitignore":`無視ファイル（.gitignore など）に従う`,"settings.add":`ファイルまたはディレクトリを追加`,"settings.close":`閉じる`,"settings.restore":`既定のリストに戻す`,"settings.remove":`{path} を削除`,"settings.toggle":`{path} を除外`,"settings.invalid.empty":`名前または相対パスを入力してください。`,"settings.invalid.nul":`パスに NUL 文字は使用できません。`,"settings.invalid.absolute":`ワークスペースからの相対パスを使用してください。`,"settings.invalid.parent":`パスに . や .. のセグメントは使用できません。`,"settings.invalid.glob":`パスにワイルドカード * ? [ ] { } ! は使用できません。`};const es={"shortcut.noSession":`Seleccione una sesión primero`,"type.label":`Archivos`,"guide.title":`Archivos de espacio de trabajo`,"guide.description":`Explorar archivos en el espacio de trabajo de esta sesión`,loading:`Leyendo…`,empty:`Directorio vacío`,emptyHidden:`Las entradas ocultas no se muestran`,truncated:`Demasiadas entradas y solo se muestran algunas de ellas.`,noWorkspace:`Esta sesión no tiene ningún directorio de espacio de trabajo.`,reload:`Recargar`,autoRefresh:`Actualización automática`,"autoRefresh.enable":`Habilitar actualización automática`,"autoRefresh.disable":`Deshabilitar la actualización automática`,"entry.other":`No es un archivo ni un directorio, por lo que no se puede abrir.`,"entry.noViewer":`Ningún visor puede abrir este archivo.`,"navigator.show":`Mostrar árbol de archivos`,"navigator.hide":`Ocultar árbol de archivos`,"navigator.resize":`Cambiar el ancho del árbol de archivos`,"error.notFound":`Ese directorio desapareció. Es posible que se haya movido o eliminado.`,"error.outsideWorkspace":`Ese directorio está fuera del espacio de trabajo, por lo que la barra lateral no lo leerá.`,"error.notDirectory":`Eso no es un directorio.`,"error.unavailable":`Error de lectura: {message}`,"search.placeholder":`Buscar archivos`,"search.settings":`Configuración de búsqueda`,"search.clear":`Borrar búsqueda`,"search.showHidden":`Mostrar entradas ocultas`,"search.results":`Resultados: {count}`,"search.empty":`Sin coincidencias`,"search.emptyHint.hidden":`No se muestran las entradas ocultas.`,"search.emptyHint.excluded":`No se muestran los archivos ni los directorios excluidos.`,"search.emptyHint.both":`No se muestran las entradas ocultas ni los archivos y directorios excluidos.`,"search.emptyHint.ignored":`No se muestran los archivos ni los directorios que ignoran los archivos de exclusión como .gitignore.`,"search.emptyHint.hiddenIgnored":`No se muestran las entradas ocultas ni los archivos y directorios que ignoran los archivos de exclusión como .gitignore.`,"search.emptyHint.excludedIgnored":`No se muestran los archivos ni los directorios excluidos o ignorados por archivos de exclusión como .gitignore.`,"search.emptyHint.all":`No se muestran las entradas ocultas, los archivos y directorios excluidos ni los ignorados por archivos de exclusión como .gitignore.`,"search.emptyHint.label":`Por qué no hay coincidencias`,"search.truncated":`Solo se muestran los primeros {count} resultados. Acote la búsqueda para ver el resto.`,"search.incomplete":`La búsqueda superó su límite de archivos o no se pudieron leer algunos directorios, por lo que los resultados pueden estar incompletos.`,"search.failed":`Error de búsqueda: {message}`,"search.retry":`Reintentar`,"settings.title":`Archivos y directorios excluidos`,"settings.description":`Solo afecta a los resultados de búsqueda, no al árbol de archivos.`,"settings.respectGitignore":`Respetar archivos de exclusión (.gitignore, etc.)`,"settings.add":`Añadir archivo o directorio`,"settings.close":`Cerrar`,"settings.restore":`Restaurar la lista predeterminada`,"settings.remove":`Eliminar {path}`,"settings.toggle":`Excluir {path}`,"settings.invalid.empty":`Introduzca un nombre o una ruta relativa.`,"settings.invalid.nul":`La ruta no puede contener el carácter NUL.`,"settings.invalid.absolute":`Use una ruta relativa al espacio de trabajo.`,"settings.invalid.parent":`La ruta no puede contener segmentos «.» ni «..».`,"settings.invalid.glob":`La ruta no puede contener comodines * ? [ ] { } !.`};const fr={"shortcut.noSession":`Sélectionnez d'abord une session`,"type.label":`Fichiers`,"guide.title":`Fichiers de l'espace de travail`,"guide.description":`Parcourir les fichiers dans l'espace de travail de cette session`,loading:`Lecture…`,empty:`Répertoire vide`,emptyHidden:`Les entrées masquées ne sont pas affichées`,truncated:`Trop d'entrées, n'en affichant que certaines.`,noWorkspace:`Cette session n'a pas de répertoire d'espace de travail.`,reload:`Recharger`,autoRefresh:`Actualisation automatique`,"autoRefresh.enable":`Activer l'actualisation automatique`,"autoRefresh.disable":`Désactiver l'actualisation automatique`,"entry.other":`Il ne s'agit pas d'un fichier ou d'un répertoire, il ne peut donc pas être ouvert.`,"entry.noViewer":`Aucune visionneuse ne peut ouvrir ce fichier.`,"navigator.show":`Afficher l'arborescence des fichiers`,"navigator.hide":`Masquer l'arborescence des fichiers`,"navigator.resize":`Redimensionner l'arborescence des fichiers`,"error.notFound":`Ce répertoire a disparu. Il a peut-être été déplacé ou supprimé.`,"error.outsideWorkspace":`Ce répertoire se trouve en dehors de l’espace de travail, donc la barre latérale ne le lira pas.`,"error.notDirectory":`Ce n'est pas un répertoire.`,"error.unavailable":`Échec de lecture\xA0: {message}`,"search.placeholder":`Rechercher des fichiers`,"search.settings":`Paramètres de recherche`,"search.clear":`Effacer la recherche`,"search.showHidden":`Afficher les entrées masquées`,"search.results":`Résultats : {count}`,"search.empty":`Aucune correspondance`,"search.emptyHint.hidden":`Les entrées masquées ne sont pas affichées.`,"search.emptyHint.excluded":`Les fichiers et répertoires exclus ne sont pas affichés.`,"search.emptyHint.both":`Les entrées masquées et les fichiers et répertoires exclus ne sont pas affichés.`,"search.emptyHint.ignored":`Les fichiers et répertoires ignorés par des fichiers d’exclusion comme .gitignore ne sont pas affichés.`,"search.emptyHint.hiddenIgnored":`Les entrées masquées et les fichiers et répertoires ignorés par des fichiers d’exclusion comme .gitignore ne sont pas affichés.`,"search.emptyHint.excludedIgnored":`Les fichiers et répertoires exclus ou ignorés par des fichiers d’exclusion comme .gitignore ne sont pas affichés.`,"search.emptyHint.all":`Les entrées masquées, les fichiers et répertoires exclus et ceux ignorés par des fichiers d’exclusion comme .gitignore ne sont pas affichés.`,"search.emptyHint.label":`Pourquoi aucune correspondance`,"search.truncated":`Seuls les {count} premiers résultats sont affichés. Affinez la recherche pour voir les autres.`,"search.incomplete":`La recherche a dépassé sa limite de fichiers, ou certains répertoires n’ont pas pu être lus, les résultats peuvent donc être incomplets.`,"search.failed":`Échec de la recherche : {message}`,"search.retry":`Réessayer`,"settings.title":`Fichiers et répertoires exclus`,"settings.description":`Concerne uniquement les résultats de recherche, pas l’arborescence des fichiers.`,"settings.respectGitignore":`Respecter les fichiers d’exclusion (.gitignore, etc.)`,"settings.add":`Ajouter un fichier ou un répertoire`,"settings.close":`Fermer`,"settings.restore":`Restaurer la liste par défaut`,"settings.remove":`Supprimer {path}`,"settings.toggle":`Exclure {path}`,"settings.invalid.empty":`Saisissez un nom ou un chemin relatif.`,"settings.invalid.nul":`Le chemin ne peut pas contenir de caractère NUL.`,"settings.invalid.absolute":`Utilisez un chemin relatif à l’espace de travail.`,"settings.invalid.parent":`Le chemin ne peut pas contenir de segments « . » ou « .. ».`,"settings.invalid.glob":`Le chemin ne peut pas contenir les caractères génériques * ? [ ] { } !.`};const de={"shortcut.noSession":`Wählen Sie zunächst eine Sitzung aus`,"type.label":`Dateien`,"guide.title":`Arbeitsbereichsdateien`,"guide.description":`Durchsuchen Sie die Dateien im Arbeitsbereich dieser Sitzung`,loading:`Lesen…`,empty:`Leeres Verzeichnis`,emptyHidden:`Versteckte Einträge werden nicht angezeigt`,truncated:`Zu viele Einträge, es werden nur einige davon angezeigt.`,noWorkspace:`Diese Sitzung hat kein Arbeitsbereichsverzeichnis.`,reload:`Neu laden`,autoRefresh:`Automatische Aktualisierung`,"autoRefresh.enable":`Aktivieren Sie die automatische Aktualisierung`,"autoRefresh.disable":`Deaktivieren Sie die automatische Aktualisierung`,"entry.other":`Keine Datei oder kein Verzeichnis, daher kann sie nicht geöffnet werden.`,"entry.noViewer":`Kein Viewer kann diese Datei öffnen.`,"navigator.show":`Dateibaum anzeigen`,"navigator.hide":`Dateibaum ausblenden`,"navigator.resize":`Breite des Dateibaums ändern`,"error.notFound":`Dieses Verzeichnis ist weg. Möglicherweise wurde es verschoben oder gelöscht.`,"error.outsideWorkspace":`Dieses Verzeichnis liegt außerhalb des Arbeitsbereichs und wird daher von der Seitenleiste nicht gelesen.`,"error.notDirectory":`Das ist kein Verzeichnis.`,"error.unavailable":`Lesen fehlgeschlagen: {message}`,"search.placeholder":`Dateien suchen`,"search.settings":`Sucheinstellungen`,"search.clear":`Suche löschen`,"search.showHidden":`Versteckte Einträge anzeigen`,"search.results":`Ergebnisse: {count}`,"search.empty":`Keine Treffer`,"search.emptyHint.hidden":`Versteckte Einträge werden nicht angezeigt.`,"search.emptyHint.excluded":`Ausgeschlossene Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.both":`Versteckte Einträge sowie ausgeschlossene Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.ignored":`Von Ignore-Dateien wie .gitignore ignorierte Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.hiddenIgnored":`Versteckte Einträge sowie von Ignore-Dateien wie .gitignore ignorierte Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.excludedIgnored":`Ausgeschlossene sowie von Ignore-Dateien wie .gitignore ignorierte Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.all":`Versteckte Einträge, ausgeschlossene sowie von Ignore-Dateien wie .gitignore ignorierte Dateien und Verzeichnisse werden nicht angezeigt.`,"search.emptyHint.label":`Warum es keine Treffer gibt`,"search.truncated":`Nur die ersten {count} Ergebnisse werden angezeigt. Grenzen Sie die Suche ein, um weitere zu sehen.`,"search.incomplete":`Die Suche hat ihr Dateilimit überschritten oder einige Verzeichnisse konnten nicht gelesen werden, daher sind die Ergebnisse möglicherweise unvollständig.`,"search.failed":`Suche fehlgeschlagen: {message}`,"search.retry":`Erneut versuchen`,"settings.title":`Ausgeschlossene Dateien und Verzeichnisse`,"settings.description":`Wirkt sich nur auf Suchergebnisse aus, nicht auf den Dateibaum.`,"settings.respectGitignore":`Ignore-Dateien beachten (.gitignore usw.)`,"settings.add":`Datei oder Verzeichnis hinzufügen`,"settings.close":`Schließen`,"settings.restore":`Standardliste wiederherstellen`,"settings.remove":`{path} entfernen`,"settings.toggle":`{path} ausschließen`,"settings.invalid.empty":`Geben Sie einen Namen oder relativen Pfad ein.`,"settings.invalid.nul":`Der Pfad darf kein NUL-Zeichen enthalten.`,"settings.invalid.absolute":`Verwenden Sie einen Pfad relativ zum Arbeitsbereich.`,"settings.invalid.parent":`Der Pfad darf keine Segmente . oder .. enthalten.`,"settings.invalid.glob":`Der Pfad darf keine Platzhalter * ? [ ] { } ! enthalten.`};const ru={"shortcut.noSession":`Сначала выберите сеанс`,"type.label":`Файлы`,"guide.title":`Файлы рабочей области`,"guide.description":`Просмотр файлов в рабочей области этого сеанса`,loading:`Чтение…`,empty:`Пустой каталог`,emptyHidden:`Скрытые записи не показаны`,truncated:`Слишком много записей, показаны только некоторые из них.`,noWorkspace:`В этом сеансе нет каталога рабочей области.`,reload:`Перезагрузить`,autoRefresh:`Автоматическое обновление`,"autoRefresh.enable":`Включить автоматическое обновление`,"autoRefresh.disable":`Отключить автоматическое обновление`,"entry.other":`Это не файл и не каталог, поэтому его нельзя открыть.`,"entry.noViewer":`Нет средства просмотра, которое может открыть этот файл.`,"navigator.show":`Показать дерево файлов`,"navigator.hide":`Скрыть дерево файлов`,"navigator.resize":`Изменить ширину дерева файлов`,"error.notFound":`Этот каталог исчез. Возможно, оно было перемещено или удалено.`,"error.outsideWorkspace":`Этот каталог находится за пределами рабочей области, поэтому боковая панель его не читает.`,"error.notDirectory":`Это не каталог.`,"error.unavailable":`Не удалось прочитать: {message}.`,"search.placeholder":`Поиск файлов`,"search.settings":`Настройки поиска`,"search.clear":`Очистить поиск`,"search.showHidden":`Показывать скрытые записи`,"search.results":`Результаты: {count}`,"search.empty":`Совпадений нет`,"search.emptyHint.hidden":`Скрытые записи не показываются.`,"search.emptyHint.excluded":`Исключённые файлы и каталоги не показываются.`,"search.emptyHint.both":`Скрытые записи, а также исключённые файлы и каталоги не показываются.`,"search.emptyHint.ignored":`Файлы и каталоги, игнорируемые файлами исключений (например, .gitignore), не показываются.`,"search.emptyHint.hiddenIgnored":`Скрытые записи, а также файлы и каталоги, игнорируемые файлами исключений (например, .gitignore), не показываются.`,"search.emptyHint.excludedIgnored":`Исключённые файлы и каталоги, а также игнорируемые файлами исключений (например, .gitignore), не показываются.`,"search.emptyHint.all":`Скрытые записи, исключённые файлы и каталоги, а также игнорируемые файлами исключений (например, .gitignore), не показываются.`,"search.emptyHint.label":`Почему нет совпадений`,"search.truncated":`Показаны только первые {count} результатов. Уточните запрос, чтобы увидеть остальные.`,"search.incomplete":`Поиск превысил лимит файлов или часть каталогов не удалось прочитать, поэтому результаты могут быть неполными.`,"search.failed":`Не удалось выполнить поиск: {message}`,"search.retry":`Повторить`,"settings.title":`Исключённые файлы и каталоги`,"settings.description":`Влияет только на результаты поиска, не на дерево файлов.`,"settings.respectGitignore":`Учитывать файлы исключений (.gitignore и др.)`,"settings.add":`Добавить файл или каталог`,"settings.close":`Закрыть`,"settings.restore":`Восстановить список по умолчанию`,"settings.remove":`Удалить {path}`,"settings.toggle":`Исключить {path}`,"settings.invalid.empty":`Введите имя или относительный путь.`,"settings.invalid.nul":`Путь не может содержать символ NUL.`,"settings.invalid.absolute":`Укажите путь относительно рабочей области.`,"settings.invalid.parent":`Путь не может содержать сегменты «.» или «..».`,"settings.invalid.glob":`Путь не может содержать подстановочные знаки * ? [ ] { } !.`};const pt={"shortcut.noSession":`Selecione uma sessão primeiro`,"type.label":`Arquivos`,"guide.title":`Arquivos do espaço de trabalho`,"guide.description":`Procure arquivos no espaço de trabalho desta sessão`,loading:`Lendo…`,empty:`Diretório vazio`,emptyHidden:`Entradas ocultas não são mostradas`,truncated:`Muitas entradas, mostrando apenas algumas delas.`,noWorkspace:`Esta sessão não possui diretório de espaço de trabalho.`,reload:`Recarregar`,autoRefresh:`Atualização automática`,"autoRefresh.enable":`Ativar atualização automática`,"autoRefresh.disable":`Desativar atualização automática`,"entry.other":`Não é um arquivo ou diretório, portanto não pode ser aberto.`,"entry.noViewer":`Nenhum visualizador pode abrir este arquivo.`,"navigator.show":`Mostrar árvore de arquivos`,"navigator.hide":`Ocultar árvore de arquivos`,"navigator.resize":`Redimensionar árvore de arquivos`,"error.notFound":`Esse diretório desapareceu. Pode ter sido movido ou excluído.`,"error.outsideWorkspace":`Esse diretório está fora da área de trabalho, portanto a barra lateral não o lerá.`,"error.notDirectory":`Isso não é um diretório.`,"error.unavailable":`Falha na leitura: {message}`,"search.placeholder":`Pesquisar arquivos`,"search.settings":`Configurações de pesquisa`,"search.clear":`Limpar pesquisa`,"search.showHidden":`Mostrar entradas ocultas`,"search.results":`Resultados: {count}`,"search.empty":`Nenhuma correspondência`,"search.emptyHint.hidden":`Entradas ocultas não são mostradas.`,"search.emptyHint.excluded":`Arquivos e diretórios excluídos não são mostrados.`,"search.emptyHint.both":`Entradas ocultas e arquivos e diretórios excluídos não são mostrados.`,"search.emptyHint.ignored":`Arquivos e diretórios ignorados por arquivos de exclusão como .gitignore não são mostrados.`,"search.emptyHint.hiddenIgnored":`Entradas ocultas e arquivos e diretórios ignorados por arquivos de exclusão como .gitignore não são mostrados.`,"search.emptyHint.excludedIgnored":`Arquivos e diretórios excluídos ou ignorados por arquivos de exclusão como .gitignore não são mostrados.`,"search.emptyHint.all":`Entradas ocultas, arquivos e diretórios excluídos e os ignorados por arquivos de exclusão como .gitignore não são mostrados.`,"search.emptyHint.label":`Por que não há correspondências`,"search.truncated":`Mostrando apenas os primeiros {count} resultados. Refine a pesquisa para ver o restante.`,"search.incomplete":`A pesquisa ultrapassou seu limite de arquivos ou alguns diretórios não puderam ser lidos, então os resultados podem estar incompletos.`,"search.failed":`Falha na pesquisa: {message}`,"search.retry":`Tentar novamente`,"settings.title":`Arquivos e diretórios excluídos`,"settings.description":`Afeta apenas os resultados da pesquisa, não a árvore de arquivos.`,"settings.respectGitignore":`Respeitar arquivos de exclusão (.gitignore etc.)`,"settings.add":`Adicionar arquivo ou diretório`,"settings.close":`Fechar`,"settings.restore":`Restaurar a lista padrão`,"settings.remove":`Remover {path}`,"settings.toggle":`Excluir {path}`,"settings.invalid.empty":`Digite um nome ou um caminho relativo.`,"settings.invalid.nul":`O caminho não pode conter o caractere NUL.`,"settings.invalid.absolute":`Use um caminho relativo ao espaço de trabalho.`,"settings.invalid.parent":`O caminho não pode conter segmentos “.” ou “..”.`,"settings.invalid.glob":`O caminho não pode conter curingas * ? [ ] { } !.`};function NavigatorToggle({useTabInfo,sessionId,useSessions,useStore,actions,toggleDrawn,t}){const{panel}=useTabInfo();const cwd=useSessions(sessions=>sessions.byId[sessionId]?.cwd);const open=useStore(store=>store.byPane[panel.id]?.open)===true;const toggleRef=(0,react.useCallback)(button=>{toggleDrawn(panel.id,button)},[toggleDrawn,panel.id]);if(cwd===void 0)return null;const label=t(open?`navigator.hide`:`navigator.show`);return(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip,{label,side:`bottom`,delayMs:500,children:(0,react_jsx_runtime.jsx)(`button`,{ref:toggleRef,type:`button`,className:FilesBody_module_css_default.tool,"aria-label":label,"aria-expanded":open,"data-files-navigator-toggle":true,onClick:()=>{actions.shown(panel.id,!open)},children:open?(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderOpenRegular,{}):(0,react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderCloseRegular,{})})})}const SEARCH_PREFERENCES_KEY=`dsh.sidebar-files.workspace-search.v1`;function workspaceKey(cwd){const trimmed=cwd.replace(/[/\\]+$/,``);if(trimmed===``)return cwd.slice(0,1);if(/^[A-Za-z]:$/.test(trimmed)&&cwd.length>trimmed.length)return cwd.slice(0,3);return trimmed}function storedEntry(stored,key){if(typeof stored!==`object`||stored===null||Array.isArray(stored)||!Object.hasOwn(stored,key))return void 0;return Object.getOwnPropertyDescriptor(stored,key)?.value}function createSearchPreferenceBook(store){const sources=new Map;const source=cwd=>{const key=workspaceKey(cwd);const known=sources.get(key);if(known!==void 0)return known;let seen;const created={getSnapshot:()=>{const raw=storedEntry(store.getSnapshot(),key);if(seen===void 0||seen.raw!==raw)seen={raw,preferences:raw===void 0?defaultSearchPreferences():readSearchPreferences(raw)};return seen.preferences},subscribe:listener=>store.subscribe(listener)};sources.set(key,created);return created};return{source,update(cwd,patch){const preferences={...source(cwd).getSnapshot(),...patch};const key=workspaceKey(cwd);const stored=store.getSnapshot();const entries=typeof stored===`object`&&stored!==null&&!Array.isArray(stored)?Object.entries(stored).filter(([name])=>name!==key):[];const changed=changedSearchPreferences(preferences);if(changed!==void 0)entries.push([key,changed]);store.set(Object.fromEntries(entries))}}}const NS=`sidebarFiles`;const inject=[`slots`,`locale`,`sidebarRightTabs`,`sidebarRight`,`remote`,`remote.workspaceFiles`];function apply(ctx){const t=ctx.locale.bind(NS);const handle=createFilesStore();const preferences=createSearchPreferenceBook((0,_deepseek_ai_dsh_client_store.createSnapshotStore)({},{persist:{name:SEARCH_PREFERENCES_KEY}}));const face=filesFace(createList(ctx.remote),createWatch(ctx.remote),canOpenOf(ctx.sidebarRightTabs),(sessionId,tabId)=>{const source=ctx.sidebarRight.tabDomain.occurrence(sessionId,{id:tabId}).navigation;return{getSnapshot:()=>source.getSnapshot(),subscribe:listener=>ctx.effect(()=>{let active=true;const unsubscribe=source.subscribe(()=>{queueMicrotask(()=>{if(active)listener()})});return()=>{active=false;unsubscribe()}},`ui-sidebar-files: tab navigation`)}},createSearch(ctx.remote),preferences);const faces=new WeakMap;const beside=new Map;const place=sessionId=>(tabId,bound)=>{const tabs=beside.get(sessionId)??new Map;beside.set(sessionId,tabs);const held=tabs.get(tabId);const entry=held?.face===bound?held:{face:bound,placed:0};entry.placed+=1;tabs.set(tabId,entry);let placed=true;return()=>{if(!placed)return;placed=false;entry.placed-=1;if(entry.placed>0||tabs.get(tabId)!==entry)return;tabs.delete(tabId);if(tabs.size===0)beside.delete(sessionId)}};const store={...handle,create:scopeKey=>{const instance=handle.create(scopeKey);if(scopeKey===void 0)return instance;const sessionId=scopeKey;faces.set(instance.actions,face(sessionId,instance,place(sessionId)));return instance}};const injectFace=(sessionId,actions)=>{const bound=faces.get(actions);if(bound===void 0)throw new Error(`ui-sidebar-files: Session "${sessionId}" has no files store instance`);return bound};ctx.inject([`shortcuts`],ctx=>{ctx.effect(()=>ctx.shortcuts.register({id:`workspace.files`,label:()=>t(`guide.title`),aliases:[`workspace files`,`files`],defaults:{"desktop:macos":{code:`KeyP`,modifiers:[`primary`]},"desktop:windows":{code:`KeyP`,modifiers:[`primary`]},"desktop:linux":{code:`KeyP`,modifiers:[`primary`]},"web:macos":{code:`KeyP`,modifiers:[`primary`,`alt`]},"web:windows":{code:`KeyP`,modifiers:[`primary`,`alt`]}},regions:[`page`,`editable`,`terminal`],modals:[],resolve:({target:element})=>{const target=ctx.sidebarRight.commandTarget(element);if(target===void 0)return{status:`blocked`,reason:t(`shortcut.noSession`)};return{status:`handled`,run:()=>{const placed=target.tabId===void 0?void 0:beside.get(target.sessionId)?.get(target.tabId);if(target.host===`dock`&&placed!==void 0){if(!ctx.sidebarRight.isExpanded())ctx.sidebarRight.toggleExpanded();placed.face.focus(target.paneId);return}ctx.sidebarRight.openTabFromTarget(FILES_KIND,target)}}}}),`ui-sidebar-files: shortcut`)});ctx.effect(()=>ctx.sidebarRightTabs.register(filesDefinition(t)),`ui-sidebar-files: files type`);ctx.effect(()=>ctx.locale.register(NS,{zh,en,ja,es,fr,de,ru,pt}),`ui-sidebar-files: dictionaries`);ctx.effect(()=>ctx.slots.registerFactory({name:`sidebar.files.tree`,scope:`root`,locale:NS,slots:{accessory:{scope:`root`}}},FileTree),`ui-sidebar-files: tree factory`);ctx.effect(()=>ctx.slots.registerFactory({name:`sidebar.files.navigator`,scope:`session`,locale:NS,store,inject:injectFace},FileNavigator),`ui-sidebar-files: navigator factory`);ctx.effect(()=>ctx.slots.registerFactory({name:`sidebar.files.navigator.toggle`,scope:`session`,locale:NS,store,inject:injectFace},NavigatorToggle),`ui-sidebar-files: navigator toggle factory`);ctx.effect(()=>ctx.slots.inject(`sidebar.right.pane.tab`,()=>ctx.slots.register({name:`sidebar.right.pane.tab`,key:FILES_ID,locale:NS,store,inject:injectFace,children:{"sidebar.right.tab.files.actions":{kind:`list`,scope:`session`}}},FilesBody)),`ui-sidebar-files: files tab body`);ctx.effect(()=>ctx.slots.inject(`sidebar.right.pane.tab.title`,()=>ctx.slots.register({name:`sidebar.right.pane.tab.title`,key:FILES_ID},FilesTitle)),`ui-sidebar-files: files tab title`)}exports.apply=apply;exports.inject=inject;return module.exports}});
+/**
+ * dsh-preview-file-navigation browser half. Generated by scripts/build.mjs from src/client/;
+ * do not edit by hand. React and the seeded platform modules come from the
+ * host module table.
+ */
+window.__ModuleLoader__.load({
+  id: 'dsh-preview-file-navigation',
+  factory(require) {
+    var module = { exports: {} };
+    var exports = module.exports;
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/client/index.tsx
+var index_exports = {};
+__export(index_exports, {
+  apply: () => apply,
+  inject: () => inject
+});
+module.exports = __toCommonJS(index_exports);
+var import_react2 = require("react");
+
+// src/client/LeftFiles.tsx
+var import_react = require("react");
+var import_jsx_runtime = require("react/jsx-runtime");
+var initialWorkspace = { query: "", expanded: /* @__PURE__ */ new Set(), listings: /* @__PURE__ */ new Map(), active: {} };
+var byName = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+function absoluteDirectory(root, relative) {
+  if (relative === "") return root;
+  const separator = /^(?:[a-z]:\\|\\\\)/i.test(root) ? "\\" : "/";
+  const base = root.endsWith(separator) ? root : root + separator;
+  return base + (separator === "\\" ? relative.replaceAll("/", "\\") : relative);
+}
+function parentOf(path) {
+  const split = path.lastIndexOf("/");
+  return split < 0 ? "" : path.slice(0, split);
+}
+function browseLines(listings, expanded) {
+  const lines = [];
+  function visit(path, depth) {
+    const result = listings.get(path);
+    if (result?.kind !== "ready" || result.entries.length === 0) {
+      const status = result === void 0 ? "loading" : result.kind === "error" ? "error" : "empty";
+      lines.push({ kind: "status", path, depth, status });
+      return;
+    }
+    for (const { name, type } of result.entries) {
+      const child = path === "" ? name : `${path}/${name}`;
+      lines.push({ kind: "row", row: { path: child, name, type, depth } });
+      if (type === "directory" && expanded.has(child)) visit(child, depth + 1);
+    }
+  }
+  visit("", 0);
+  return lines;
+}
+function LoadEntries({ target, load, settle }) {
+  (0, import_react.useEffect)(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    void (async () => {
+      let result;
+      try {
+        result = { kind: "ready", entries: await load(target, signal) };
+      } catch {
+        result = { kind: "error" };
+      }
+      if (!signal.aborted) settle(target, result);
+    })();
+    return () => controller.abort();
+  }, [target, load, settle]);
+  return null;
+}
+function LeftFiles({ root, list, search, open, t }) {
+  const [workspaces, setWorkspaces] = (0, import_react.useState)(() => /* @__PURE__ */ new Map());
+  const workspace = workspaces.get(root) ?? initialWorkspace;
+  const query = workspace.query.trim();
+  const searching = query !== "";
+  const view = searching ? "search" : "browse";
+  const { expanded, listings, matches } = workspace;
+  const lines = (0, import_react.useMemo)(() => searching ? [] : browseLines(listings, expanded), [searching, listings, expanded]);
+  const rows = (0, import_react.useMemo)(() => {
+    if (!searching) return lines.flatMap((line) => line.kind === "row" ? [line.row] : []);
+    if (matches?.kind !== "ready") return [];
+    return matches.entries.map((entry) => ({
+      ...entry,
+      name: entry.path.slice(entry.path.lastIndexOf("/") + 1),
+      depth: 0
+    }));
+  }, [lines, matches, searching]);
+  const activePath = workspace.active[view];
+  const tabPath = rows.find((row) => row.path === activePath)?.path ?? rows[0]?.path;
+  const inputRef = (0, import_react.useRef)(null);
+  const scrollerRef = (0, import_react.useRef)(null);
+  const scrollOffsets = (0, import_react.useRef)(/* @__PURE__ */ new Map());
+  const displayed = (0, import_react.useRef)(null);
+  const focusWithin = (0, import_react.useRef)(false);
+  const rowFocused = (0, import_react.useRef)(false);
+  const pendingFocus = (0, import_react.useRef)(null);
+  const update = (0, import_react.useCallback)((change) => {
+    setWorkspaces((previous) => {
+      const current = previous.get(root) ?? initialWorkspace;
+      const next = change(current);
+      if (next === current) return previous;
+      return new Map(previous).set(root, next);
+    });
+  }, [root]);
+  const loadDirectory = (0, import_react.useCallback)((path, signal) => list(absoluteDirectory(root, path), signal), [root, list]);
+  const settleDirectory = (0, import_react.useCallback)((path, result) => {
+    const ordered = result.kind === "ready" ? {
+      kind: "ready",
+      entries: [...result.entries].sort((a, b) => Number(b.type === "directory") - Number(a.type === "directory") || byName.compare(a.name, b.name))
+    } : result;
+    update((previous) => ({ ...previous, listings: new Map(previous.listings).set(path, ordered) }));
+  }, [update]);
+  const settleSearch = (0, import_react.useCallback)((target, matches2) => {
+    update((previous) => previous.query.trim() === target ? { ...previous, matches: matches2 } : previous);
+  }, [update]);
+  function findRow(path) {
+    return Array.from(scrollerRef.current?.querySelectorAll("button[data-path]") ?? []).find((row) => row.dataset.path === path);
+  }
+  function focusRow(path, reveal = true) {
+    const scroller = scrollerRef.current;
+    const button = findRow(path);
+    if (!scroller || !button) return false;
+    const viewport = scroller.getBoundingClientRect();
+    const row = button.getBoundingClientRect();
+    if (reveal) {
+      if (row.top < viewport.top) scroller.scrollTop -= viewport.top - row.top;
+      else if (row.bottom > viewport.bottom) scroller.scrollTop += row.bottom - viewport.bottom;
+    } else if (row.bottom <= viewport.top || row.top >= viewport.bottom) {
+      return false;
+    }
+    button.focus({ preventScroll: true });
+    return true;
+  }
+  (0, import_react.useLayoutEffect)(() => {
+    const scroller = scrollerRef.current;
+    const previous = displayed.current;
+    if (!scroller) return;
+    if (previous?.root !== root || previous.query !== query) {
+      displayed.current = { root, query };
+      scroller.scrollTop = scrollOffsets.current.get(root)?.[view] ?? 0;
+      if (previous && previous.root !== root) {
+        pendingFocus.current = null;
+        if (focusWithin.current && rowFocused.current && (tabPath === void 0 || !focusRow(tabPath, false))) {
+          scroller.focus({ preventScroll: true });
+        }
+      }
+    }
+    const target = pendingFocus.current;
+    if (target?.root === root && focusWithin.current) {
+      if (focusRow(target.path, target.reveal)) pendingFocus.current = null;
+      else if (!target.reveal) {
+        pendingFocus.current = null;
+        scroller.focus({ preventScroll: true });
+      }
+    }
+  });
+  function rememberScroll(scroller) {
+    const offsets = scrollOffsets.current.get(root) ?? { browse: 0, search: 0 };
+    offsets[view] = scroller.scrollTop;
+    scrollOffsets.current.set(root, offsets);
+  }
+  function resetSearchScroll() {
+    if (scrollerRef.current) rememberScroll(scrollerRef.current);
+    const offsets = scrollOffsets.current.get(root);
+    if (offsets) offsets.search = 0;
+  }
+  function changeQuery(value) {
+    const target = value.trim();
+    if (target !== query) resetSearchScroll();
+    pendingFocus.current = searching && target === "" && workspace.active.browse !== void 0 ? { root, path: workspace.active.browse, reveal: false } : null;
+    update((previous) => target === previous.query.trim() ? { ...previous, query: value } : { ...previous, query: value, matches: void 0, active: { browse: previous.active.browse ?? void 0 } });
+  }
+  function clearSearch() {
+    inputRef.current?.focus({ preventScroll: true });
+    changeQuery("");
+  }
+  function toggle(path) {
+    update((previous) => {
+      const expanded2 = new Set(previous.expanded);
+      if (!expanded2.delete(path)) expanded2.add(path);
+      return { ...previous, expanded: expanded2 };
+    });
+  }
+  function activate(row) {
+    if (row.type === "file") {
+      open(row.path);
+      return;
+    }
+    if (row.type !== "directory") return;
+    if (!searching) {
+      toggle(row.path);
+      return;
+    }
+    pendingFocus.current = { root, path: row.path, reveal: true };
+    resetSearchScroll();
+    scrollerRef.current?.focus({ preventScroll: true });
+    update((previous) => {
+      const expanded2 = new Set(previous.expanded);
+      for (let path = row.path; path !== ""; path = parentOf(path)) expanded2.add(path);
+      return { ...previous, query: "", matches: void 0, expanded: expanded2, active: { browse: row.path } };
+    });
+  }
+  function onKeyDown(event) {
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const { key, target } = event;
+    const atInput = target === inputRef.current;
+    const atScroller = target === scrollerRef.current;
+    if (key === "Escape" && workspace.query !== "") {
+      event.preventDefault();
+      event.stopPropagation();
+      clearSearch();
+      return;
+    }
+    const targetPath = target instanceof HTMLButtonElement ? target.dataset.path : void 0;
+    const index = targetPath === void 0 ? -1 : rows.findIndex((row2) => row2.path === targetPath);
+    const row = rows[index];
+    if (atInput && searching && key === "Enter") {
+      const result = rows.find((entry) => entry.path === tabPath);
+      if (result) {
+        event.preventDefault();
+        activate(result);
+      }
+      return;
+    }
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      if (!atInput && !atScroller && !row) return;
+      const step = key === "ArrowDown" ? 1 : -1;
+      if (atScroller && step === 1) {
+        for (const entry of rows) {
+          if (!focusRow(entry.path, false)) continue;
+          event.preventDefault();
+          pendingFocus.current = null;
+          return;
+        }
+      }
+      const next = atInput || atScroller ? step === 1 ? rows[0] : void 0 : rows[index + step];
+      if (next) {
+        event.preventDefault();
+        pendingFocus.current = null;
+        focusRow(next.path);
+      } else if (!atInput && key === "ArrowUp") {
+        event.preventDefault();
+        pendingFocus.current = null;
+        inputRef.current?.focus({ preventScroll: true });
+      }
+      return;
+    }
+    if (!row || searching) return;
+    if (key === "ArrowRight" && row.type === "directory") {
+      event.preventDefault();
+      if (!workspace.expanded.has(row.path)) toggle(row.path);
+      else {
+        const child = rows[index + 1];
+        if (child?.depth === row.depth + 1) focusRow(child.path);
+      }
+    } else if (key === "ArrowLeft") {
+      event.preventDefault();
+      if (row.type === "directory" && workspace.expanded.has(row.path)) toggle(row.path);
+      else if (row.depth > 0) focusRow(parentOf(row.path));
+    }
+  }
+  function renderRow(row) {
+    const expanded2 = !searching && row.type === "directory" ? workspace.expanded.has(row.path) : void 0;
+    const parent = searching ? parentOf(row.path) : "";
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+      "button",
+      {
+        type: "button",
+        className: "dsh-left-files__row",
+        role: searching ? void 0 : "treeitem",
+        "aria-level": searching ? void 0 : row.depth + 1,
+        "aria-expanded": expanded2,
+        "aria-disabled": row.type === "other" || void 0,
+        "aria-label": searching ? row.path : void 0,
+        title: row.path,
+        "data-path": row.path,
+        "data-type": row.type,
+        tabIndex: row.path === tabPath ? 0 : -1,
+        style: { "--left-files-depth": row.depth },
+        onFocus: () => {
+          rowFocused.current = true;
+          update((previous) => previous.active[view] === row.path ? previous : { ...previous, active: { ...previous.active, [view]: row.path } });
+        },
+        onClick: () => {
+          pendingFocus.current = null;
+          activate(row);
+        },
+        children: [
+          row.type === "directory" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__twisty", "aria-hidden": "true" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-left-files__label", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__name", children: row.name }),
+            parent !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__path", "aria-hidden": "true", children: parent })
+          ] })
+        ]
+      },
+      `row:${row.path}`
+    );
+  }
+  function renderNotice(status, depth, retry) {
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-left-files__notice", style: { "--left-files-depth": depth }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { role: status === "error" ? "alert" : "status", children: t(status) }),
+      status === "error" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-left-files__action", onClick: retry, children: t("retry") })
+    ] });
+  }
+  return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+    "div",
+    {
+      className: "dsh-left-files",
+      onKeyDown,
+      onFocusCapture: (event) => {
+        focusWithin.current = true;
+        rowFocused.current = event.target === scrollerRef.current;
+      },
+      onBlurCapture: (event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          focusWithin.current = false;
+          pendingFocus.current = null;
+        }
+      },
+      children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-left-files__search", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+            "input",
+            {
+              ref: inputRef,
+              type: "search",
+              autoComplete: "off",
+              "aria-label": t("search"),
+              placeholder: t("search"),
+              value: workspace.query,
+              onChange: (event) => changeQuery(event.currentTarget.value)
+            }
+          ),
+          workspace.query !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-left-files__action", onClick: clearSearch, children: t("clear") })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "div",
+          {
+            className: "dsh-left-files__scroll",
+            ref: scrollerRef,
+            tabIndex: -1,
+            onScroll: (event) => rememberScroll(event.currentTarget),
+            children: searching ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "group", "aria-label": t("search"), children: [
+              workspace.matches === void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: query, load: search, settle: settleSearch }, query),
+              rows.map(renderRow),
+              rows.length === 0 && renderNotice(
+                workspace.matches === void 0 ? "loading" : workspace.matches.kind === "error" ? "error" : "empty",
+                0,
+                () => {
+                  inputRef.current?.focus({ preventScroll: true });
+                  update((previous) => ({ ...previous, matches: void 0 }));
+                }
+              )
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { role: "tree", "aria-label": root, children: lines.map((line) => {
+              if (line.kind === "row") return renderRow(line.row);
+              const { path, depth, status } = line;
+              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "none", children: [
+                status === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: path, load: loadDirectory, settle: settleDirectory }, root),
+                renderNotice(status, depth, () => {
+                  if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true });
+                  update((previous) => {
+                    const listings2 = new Map(previous.listings);
+                    listings2.delete(path);
+                    return { ...previous, listings: listings2 };
+                  });
+                })
+              ] }, `status:${path}`);
+            }) })
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/client/LeftFiles.css.ts
+var leftFilesCss = `
+.dsh-left-files {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-block-size: 100%;
+  inline-size: 100%;
+  container-type: inline-size;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsh-left-files__search,
+.dsh-left-files__scroll {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.dsh-left-files__search {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  min-inline-size: 0;
+  gap: 4px;
+  padding: 6px;
+}
+
+.dsh-left-files__search input {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-inline-size: 0;
+  min-block-size: 28px;
+  padding-inline: 6px;
+  appearance: none;
+  color: inherit;
+  background: var(--dsw-alias-bg-overlay);
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.dsh-left-files__search input::placeholder {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dsh-left-files__search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.dsh-left-files__scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  padding-inline: 6px;
+  padding-block-end: 6px;
+}
+
+.dsh-left-files__row,
+.dsh-left-files__action {
+  box-sizing: border-box;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dsh-left-files__row,
+.dsh-left-files__notice {
+  --left-files-step: clamp(10px, calc(3.25px + 3.75cqi), 13px);
+  --left-files-indent: min(calc(var(--left-files-depth, 0) * var(--left-files-step)), 30cqi);
+  padding-inline-start: calc(6px + var(--left-files-indent));
+  padding-inline-end: 6px;
+}
+
+.dsh-left-files__row {
+  display: flex;
+  align-items: flex-start;
+  inline-size: 100%;
+  min-block-size: 24px;
+  padding-block: 4px;
+  padding-inline-start: calc(16px + var(--left-files-indent));
+  text-align: start;
+  position: relative;
+}
+
+.dsh-left-files__row[aria-disabled='true'] {
+  color: var(--dsw-alias-label-secondary);
+  cursor: default;
+}
+
+.dsh-left-files__twisty {
+  position: absolute;
+  inset-inline-start: calc(6px + var(--left-files-indent));
+  inset-block-start: calc(4px + .48em);
+  inline-size: .4em;
+  block-size: .4em;
+  border-inline-end: 1px solid currentColor;
+  border-block-end: 1px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.dsh-left-files__twisty:dir(rtl) {
+  transform: rotate(45deg);
+}
+
+.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty {
+  transform: rotate(45deg);
+}
+
+.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty:dir(rtl) {
+  transform: rotate(-45deg);
+}
+
+.dsh-left-files__label {
+  display: grid;
+  min-inline-size: 0;
+}
+
+.dsh-left-files__name,
+.dsh-left-files__path {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dsh-left-files__path {
+  direction: rtl;
+  text-align: left;
+}
+
+@container (min-width: 220px) {
+  .dsh-left-files__path {
+    direction: ltr;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.dsh-left-files__path,
+.dsh-left-files__notice {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dsh-left-files__action {
+  min-block-size: 24px;
+  padding-inline: 6px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.dsh-left-files__notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-block-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.dsh-left-files__notice [role='alert'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dsh-left-files :is(button, input, [tabindex]):focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -1px;
+}
+
+@media (hover: hover) {
+  .dsh-left-files__row:not([aria-disabled='true']):hover {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+
+  .dsh-left-files__action:hover {
+    background: var(--dsw-alias-interactive-bg-active);
+  }
+}
+
+@media (pointer: coarse) {
+  .dsh-left-files__search input {
+    font-size: max(16px, 1em);
+  }
+  .dsh-left-files__search input,
+  .dsh-left-files__row,
+  .dsh-left-files__action {
+    min-block-size: 40px;
+  }
+}
+`;
+
+// src/client/locale.ts
+function labels(...copy) {
+  return {
+    title: copy[0],
+    noSession: copy[1],
+    search: copy[2],
+    empty: copy[3],
+    loading: copy[4],
+    error: copy[5],
+    retry: copy[6],
+    clear: copy[7],
+    openFailed: copy[8]
+  };
+}
+var dictionaries = {
+  en: labels("Workspace files", "Open a workspace session to browse files.", "Search files or paths", "No entries", "Loading\u2026", "Could not load files.", "Retry", "Clear search", "A preview is unavailable for this file."),
+  zh: labels("\u5DE5\u4F5C\u533A\u6587\u4EF6", "\u6253\u5F00\u4E00\u4E2A\u5DE5\u4F5C\u533A\u4F1A\u8BDD\u5373\u53EF\u6D4F\u89C8\u6587\u4EF6\u3002", "\u641C\u7D22\u6587\u4EF6\u540D\u6216\u8DEF\u5F84", "\u6CA1\u6709\u6761\u76EE", "\u6B63\u5728\u52A0\u8F7D\u2026", "\u65E0\u6CD5\u52A0\u8F7D\u6587\u4EF6\u3002", "\u91CD\u8BD5", "\u6E05\u7A7A\u641C\u7D22", "\u6B64\u6587\u4EF6\u65E0\u6CD5\u9884\u89C8\u3002"),
+  ja: labels("\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30D5\u30A1\u30A4\u30EB", "\u30D5\u30A1\u30A4\u30EB\u3092\u95B2\u89A7\u3059\u308B\u306B\u306F\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30BB\u30C3\u30B7\u30E7\u30F3\u3092\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002", "\u30D5\u30A1\u30A4\u30EB\u540D\u307E\u305F\u306F\u30D1\u30B9\u3092\u691C\u7D22", "\u9805\u76EE\u304C\u3042\u308A\u307E\u305B\u3093", "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026", "\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002", "\u518D\u8A66\u884C", "\u691C\u7D22\u3092\u6D88\u53BB", "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u306F\u30D7\u30EC\u30D3\u30E5\u30FC\u3067\u304D\u307E\u305B\u3093\u3002"),
+  de: labels("Arbeitsbereichsdateien", "\xD6ffnen Sie eine Sitzung im Arbeitsbereich, um Dateien zu durchsuchen.", "Dateien oder Pfade suchen", "Keine Eintr\xE4ge", "Wird geladen\u2026", "Dateien konnten nicht geladen werden.", "Erneut versuchen", "Suche leeren", "F\xFCr diese Datei ist keine Vorschau verf\xFCgbar."),
+  es: labels("Archivos del espacio de trabajo", "Abre una sesi\xF3n del espacio de trabajo para explorar archivos.", "Buscar archivos o rutas", "No hay elementos", "Cargando\u2026", "No se pudieron cargar los archivos.", "Reintentar", "Borrar b\xFAsqueda", "No hay vista previa para este archivo."),
+  fr: labels("Fichiers de l\u2019espace de travail", "Ouvrez une session de l\u2019espace de travail pour parcourir les fichiers.", "Rechercher des fichiers ou des chemins", "Aucun \xE9l\xE9ment", "Chargement\u2026", "Impossible de charger les fichiers.", "R\xE9essayer", "Effacer la recherche", "Aucun aper\xE7u pour ce fichier."),
+  pt: labels("Arquivos do espa\xE7o de trabalho", "Abra uma sess\xE3o do espa\xE7o de trabalho para navegar pelos arquivos.", "Pesquisar arquivos ou caminhos", "Nenhum item", "Carregando\u2026", "N\xE3o foi poss\xEDvel carregar os arquivos.", "Tentar novamente", "Limpar pesquisa", "N\xE3o h\xE1 pr\xE9via deste arquivo."),
+  ru: labels("\u0424\u0430\u0439\u043B\u044B \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438", "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0435\u0430\u043D\u0441 \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u0434\u043B\u044F \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 \u0444\u0430\u0439\u043B\u043E\u0432.", "\u041F\u043E\u0438\u0441\u043A \u0444\u0430\u0439\u043B\u043E\u0432 \u0438\u043B\u0438 \u043F\u0443\u0442\u0435\u0439", "\u041D\u0435\u0442 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432", "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026", "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B.", "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C", "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u043F\u043E\u0438\u0441\u043A", "\u041F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u044D\u0442\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.")
+};
+
+// src/client/index.tsx
+var import_jsx_runtime2 = require("react/jsx-runtime");
+var ID = "dsh-preview-file-navigation";
+var SLOT = "sidebar.footer.action";
+var EXCLUDED = [".git", ".hg", ".svn", ".pnpm-store", "node_modules"];
+var inject = ["slots", "locale", "layout", "sidebarRight", "sidebarRightTabs", "remote", "remote.workspaceFiles"];
+var footerCss = `
+/* The footer is a flex row and its slot anchor is display: contents. */
+div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files:not([data-rail])) { flex-wrap: wrap; }
+.left-workspace-files { flex: 0 0 100%; min-width: 0; color: var(--dsw-alias-label-primary); }
+.left-workspace-files[data-rail] { flex-basis: auto; }
+.left-workspace-files > button { width: 100%; min-height: 32px; display: flex; gap: 7px; align-items: center; padding: 0 8px; text-align: start; border: 0; border-radius: var(--dsw-radius-md); background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.left-workspace-files > button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
+.left-workspace-files > button svg { flex: none; }
+.left-workspace-files > button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
+@media (hover:hover) { .left-workspace-files > button:hover { background: var(--dsw-alias-interactive-bg-hover); } }
+.left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
+.left-workspace-files [data-left-files-pane] { height: min(36vh, 360px); min-height: 0; display: flex; flex-direction: column; }
+.left-workspace-files [data-left-files-pane][hidden] { display: none; }
+.left-workspace-files [data-left-files-notice] { margin: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; overflow-wrap: anywhere; }
+`;
+function Footer({ wide, useMountedSession, useSessions, connect, expand, t }) {
+  const sessionId = useMountedSession((session2) => session2);
+  const root = useSessions((snapshot) => sessionId === void 0 ? void 0 : snapshot.byId[sessionId]?.cwd);
+  const [opened, setOpened] = (0, import_react2.useState)(false);
+  const [activated, setActivated] = (0, import_react2.useState)(false);
+  const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
+  const session = (0, import_react2.useMemo)(() => sessionId === void 0 ? void 0 : connect(sessionId), [sessionId, connect]);
+  const shown = opened && wide;
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "left-workspace-files", "data-rail": wide ? void 0 : "", children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: footerCss + leftFilesCss }),
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "button",
+      {
+        type: "button",
+        "aria-label": t("title"),
+        title: wide ? void 0 : t("title"),
+        "aria-expanded": shown,
+        onClick: () => {
+          if (!wide) expand();
+          setOpened(!shown);
+          setActivated(true);
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.2", "aria-hidden": "true", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M1.8 4.2V12h12.4V4.9H8.1L6.7 3.2H2.8a1 1 0 0 0-1 1Z", strokeLinejoin: "round" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M2 6.7h12" })
+          ] }),
+          wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("title") })
+        ]
+      }
+    ),
+    activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-left-files-pane": "", hidden: !shown, children: [
+      root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeftFiles, { root, list: session.list, search: session.search, t, open: (path) => setOpenFailed(!session.open(path)) }),
+      openFailed && shown && root !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
+    ] })
+  ] });
+}
+function apply(ctx) {
+  ctx.effect(() => ctx.locale.register(ID, dictionaries), `${ID}: dictionaries`);
+  const connect = (sessionId) => ({
+    list: async (path, signal) => {
+      const result = await ctx.remote.workspaceFiles.list(sessionId, path, signal);
+      if (!result.ok) throw result.error;
+      return result.value.entries.filter((entry) => !entry.name.startsWith("."));
+    },
+    search: async (query, signal) => {
+      const result = await ctx.remote.workspaceFiles.search(sessionId, {
+        query,
+        excludedPaths: EXCLUDED,
+        includeHidden: false,
+        respectGitignore: true
+      }, signal);
+      if (!result.ok) throw result.error;
+      return result.value.matches;
+    },
+    open: (path) => {
+      if (ctx.sidebarRight.mounted.getSnapshot() !== sessionId) return false;
+      const address = `dsh-resource://file/session/${encodeURIComponent(sessionId)}/${path.split("/").map(encodeURIComponent).join("/")}`;
+      if (ctx.sidebarRightTabs.candidates(address).length === 0) return false;
+      ctx.sidebarRight.openResource(address);
+      return true;
+    }
+  });
+  ctx.effect(() => ctx.slots.inject(SLOT, () => ctx.slots.register({
+    name: SLOT,
+    id: ID,
+    order: 20,
+    locale: ID,
+    inject: () => ({
+      hooks: { mountedSession: ctx.sidebarRight.mounted },
+      connect,
+      expand: () => ctx.layout.toggleSidebar()
+    })
+  }, Footer)), `${ID}: left sidebar files`);
+}
+
+    return module.exports;
+  },
+});

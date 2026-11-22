@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Navegação compacta de arquivos",
-    "description": "Explore ou pesquise arquivos do espaço de trabalho ao lado da prévia do documento. Selecione um arquivo para abri-lo na prévia integrada. Requer o DeepSeek Harness 0.2.2-rc.5."
+    "title": "Arquivos do espaço de trabalho",
+    "description": "Selecione Arquivos do espaço de trabalho acima das configurações na barra lateral esquerda para explorar ou pesquisar no diretório de trabalho da sessão atual. Selecione um arquivo para abri-lo na prévia integrada. Requer o DeepSeek Harness 0.2.2-rc.5."
   }
 }

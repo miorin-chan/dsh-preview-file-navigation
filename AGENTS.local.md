@@ -1,25 +1,19 @@
 # AGENTS.local
 
-This file supplements [AGENTS.md](AGENTS.md) with rules for this local DSH bundle.
+This file supplements [AGENTS.md](AGENTS.md) with rules for the Workspace files bundle.
 
 ## Documentation and localization
 
-- Keep [the English README](README.md) and [the Chinese README](README.zh.md) aligned.
-  Update them when installation, behavior, or compatibility changes.
-  Keep maintainer notes and upstream links in the [docs index](docs/README.md).
-- Keep the Plugin Manager title and description in all eight `locale/*.json` files (`en`,
-  `zh`, `ja`, `de`, `es`, `fr`, `pt`, and `ru`).
-  Preserve the upstream runtime translations in the distributed client.
-- Format edited Markdown with the [standalone reflow script](docs/scripts/reflow), which requires Python 3.11 or newer.
+- Maintain the [English README](README.md) and [Chinese README](README.zh.md) together.
+  Keep development and compatibility notes in the [docs index](docs/README.md).
+- Keep Plugin Manager copy in `locale/*.json` and runtime copy in [the client dictionary](src/client/locale.ts).
+  Update all eight locales (`en`, `zh`, `ja`, `de`, `es`, `fr`, `pt`, and `ru`).
+- Format edited Markdown with the [standalone reflow script](docs/scripts/reflow).
 
-## Distribution
+## Implementation and verification
 
-- Build from the upstream checkout pinned in the [docs index](docs/README.md).
-  Regenerate the distributed client with [the build script](scripts/build.mjs)
-  and retain the upstream [MIT license](LICENSE).
-- The Loader layer must deactivate the original Files plugin while the local bundle is enabled.
-  Preserve the native file tab and Factory registrations so the built-in document preview can keep using them.
-  Keep installed DSH files intact.
-- Treat the exact DSH runtime version as part of the compatibility contract.
-  Check the existing provider entry, component Factory declarations, stylesheets, and registrations before updating it.
-  Follow the verification in the [docs index](docs/README.md) for changes to the distribution or runtime version.
+- Keep the file browser in the left sidebar footer.
+  Use the current session’s working directory and send file opens through the native right sidebar preview.
+- Write source in TypeScript and regenerate the distributed JavaScript with [the build script](scripts/build.mjs).
+- The bundle targets exactly DeepSeek Harness 0.2.2-rc.5.
+  Follow the [build and verification instructions](docs/README.md) when changing the source or runtime version.

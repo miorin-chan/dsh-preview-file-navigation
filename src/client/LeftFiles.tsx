@@ -1,0 +1,427 @@
+/** Workspace file browsing and search for a height-bounded sidebar. */
+import { useCallback, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent } from 'react'
+
+type EntryType = 'directory' | 'file' | 'other'
+type DirectoryEntry = { readonly name: string; readonly type: EntryType }
+type SearchEntry = { readonly path: string; readonly type: EntryType }
+type TranslationKey = 'search' | 'empty' | 'loading' | 'error' | 'retry' | 'clear'
+
+/** Data, actions, and localized labels supplied by the sidebar owner. */
+export interface LeftFilesProps {
+  /** Absolute workspace directory. The root identifies its state within this mount. */
+  readonly root: string
+  /** List immediate children of an absolute directory. */
+  readonly list: (path: string, signal: AbortSignal) => Promise<readonly DirectoryEntry[]>
+  /** Return workspace-relative paths with `/` separators in display order. */
+  readonly search: (query: string, signal: AbortSignal) => Promise<readonly SearchEntry[]>
+  /** Open a file by its workspace-relative path with `/` separators. */
+  readonly open: (relativePath: string) => void
+  /** Provide the labels for the current locale. */
+  readonly t: (key: TranslationKey) => string
+}
+
+type Result<T> = { readonly kind: 'ready'; readonly entries: readonly T[] } | { readonly kind: 'error' }
+type View = 'browse' | 'search'
+type Row = SearchEntry & { readonly name: string; readonly depth: number }
+type BrowseLine = { readonly kind: 'row'; readonly row: Row }
+  | { readonly kind: 'status'; readonly path: string; readonly depth: number; readonly status: TranslationKey }
+
+type Workspace = {
+  readonly query: string
+  readonly expanded: ReadonlySet<string>
+  readonly listings: ReadonlyMap<string, Result<DirectoryEntry>>
+  readonly matches?: Result<SearchEntry> | undefined
+  readonly active: Readonly<Partial<Record<View, string | undefined>>>
+}
+
+const initialWorkspace: Workspace = { query: '', expanded: new Set(), listings: new Map(), active: {} }
+const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+function absoluteDirectory(root: string, relative: string): string {
+  if (relative === '') return root
+  const separator = /^(?:[a-z]:\\|\\\\)/i.test(root) ? '\\' : '/'
+  const base = root.endsWith(separator) ? root : root + separator
+  return base + (separator === '\\' ? relative.replaceAll('/', '\\') : relative)
+}
+
+function parentOf(path: string): string {
+  const split = path.lastIndexOf('/')
+  return split < 0 ? '' : path.slice(0, split)
+}
+
+function browseLines(listings: Workspace['listings'], expanded: Workspace['expanded']): BrowseLine[] {
+  const lines: BrowseLine[] = []
+  function visit(path: string, depth: number): void {
+    const result = listings.get(path)
+    if (result?.kind !== 'ready' || result.entries.length === 0) {
+      const status = result === undefined ? 'loading' : result.kind === 'error' ? 'error' : 'empty'
+      lines.push({ kind: 'status', path, depth, status })
+      return
+    }
+    for (const { name, type } of result.entries) {
+      const child = path === '' ? name : `${path}/${name}`
+      lines.push({ kind: 'row', row: { path: child, name, type, depth } })
+      if (type === 'directory' && expanded.has(child)) visit(child, depth + 1)
+    }
+  }
+  visit('', 0)
+  return lines
+}
+
+/** A request exists while its unset directory listing or search is visible. */
+function LoadEntries<T>({ target, load, settle }: {
+  target: string
+  load: (target: string, signal: AbortSignal) => Promise<readonly T[]>
+  settle: (target: string, result: Result<T>) => void
+}): null {
+  useEffect(() => {
+    const controller = new AbortController()
+    const { signal } = controller
+    void (async () => {
+      let result: Result<T>
+      try {
+        result = { kind: 'ready', entries: await load(target, signal) }
+      } catch {
+        result = { kind: 'error' }
+      }
+      if (!signal.aborted) settle(target, result)
+    })()
+    return () => controller.abort()
+  }, [target, load, settle])
+  return null
+}
+
+/**
+ * Draw the search field and workspace files. The caller supplies the header and styles.
+ * @param props - Workspace and adapter callbacks for this sidebar.
+ * @returns The file navigator.
+ */
+export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
+  const [workspaces, setWorkspaces] = useState<ReadonlyMap<string, Workspace>>(() => new Map())
+  const workspace = workspaces.get(root) ?? initialWorkspace
+  const query = workspace.query.trim()
+  const searching = query !== ''
+  const view: View = searching ? 'search' : 'browse'
+  const { expanded, listings, matches } = workspace
+  const lines = useMemo(() => searching ? [] : browseLines(listings, expanded), [searching, listings, expanded])
+  const rows = useMemo<Row[]>(() => {
+    if (!searching) return lines.flatMap(line => line.kind === 'row' ? [line.row] : [])
+    if (matches?.kind !== 'ready') return []
+    return matches.entries.map(entry => ({
+      ...entry,
+      name: entry.path.slice(entry.path.lastIndexOf('/') + 1),
+      depth: 0,
+    }))
+  }, [lines, matches, searching])
+  const activePath = workspace.active[view]
+  const tabPath = rows.find(row => row.path === activePath)?.path ?? rows[0]?.path
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const scrollOffsets = useRef(new Map<string, Record<View, number>>())
+  const displayed = useRef<{ root: string; query: string } | null>(null)
+  const focusWithin = useRef(false)
+  const rowFocused = useRef(false)
+  const pendingFocus = useRef<{ root: string; path: string; reveal: boolean } | null>(null)
+
+  const update = useCallback((change: (previous: Workspace) => Workspace) => {
+    setWorkspaces(previous => {
+      const current = previous.get(root) ?? initialWorkspace
+      const next = change(current)
+      if (next === current) return previous
+      return new Map(previous).set(root, next)
+    })
+  }, [root])
+
+  const loadDirectory = useCallback((path: string, signal: AbortSignal) => list(absoluteDirectory(root, path), signal), [root, list])
+
+  const settleDirectory = useCallback((path: string, result: Result<DirectoryEntry>) => {
+    const ordered: Result<DirectoryEntry> = result.kind === 'ready' ? {
+      kind: 'ready',
+      entries: [...result.entries].sort((a, b) => Number(b.type === 'directory') - Number(a.type === 'directory') || byName.compare(a.name, b.name)),
+    } : result
+    update(previous => ({ ...previous, listings: new Map(previous.listings).set(path, ordered) }))
+  }, [update])
+
+  const settleSearch = useCallback((target: string, matches: Result<SearchEntry>) => {
+    update(previous => previous.query.trim() === target ? { ...previous, matches } : previous)
+  }, [update])
+
+  function findRow(path: string): HTMLButtonElement | undefined {
+    return Array.from(scrollerRef.current?.querySelectorAll<HTMLButtonElement>('button[data-path]') ?? [])
+      .find(row => row.dataset.path === path)
+  }
+
+  function focusRow(path: string, reveal = true): boolean {
+    const scroller = scrollerRef.current
+    const button = findRow(path)
+    if (!scroller || !button) return false
+    const viewport = scroller.getBoundingClientRect()
+    const row = button.getBoundingClientRect()
+    if (reveal) {
+      if (row.top < viewport.top) scroller.scrollTop -= viewport.top - row.top
+      else if (row.bottom > viewport.bottom) scroller.scrollTop += row.bottom - viewport.bottom
+    } else if (row.bottom <= viewport.top || row.top >= viewport.bottom) {
+      return false
+    }
+    button.focus({ preventScroll: true })
+    return true
+  }
+
+  // Apply the saved offset after the new rows commit, before the viewport paints.
+  useLayoutEffect(() => {
+    const scroller = scrollerRef.current
+    const previous = displayed.current
+    if (!scroller) return
+    if (previous?.root !== root || previous.query !== query) {
+      displayed.current = { root, query }
+      scroller.scrollTop = scrollOffsets.current.get(root)?.[view] ?? 0
+      if (previous && previous.root !== root) {
+        pendingFocus.current = null
+        if (focusWithin.current && rowFocused.current && (tabPath === undefined || !focusRow(tabPath, false))) {
+          scroller.focus({ preventScroll: true })
+        }
+      }
+    }
+    const target = pendingFocus.current
+    if (target?.root === root && focusWithin.current) {
+      if (focusRow(target.path, target.reveal)) pendingFocus.current = null
+      else if (!target.reveal) {
+        pendingFocus.current = null
+        scroller.focus({ preventScroll: true })
+      }
+    }
+  })
+
+  function rememberScroll(scroller: HTMLDivElement): void {
+    const offsets = scrollOffsets.current.get(root) ?? { browse: 0, search: 0 }
+    offsets[view] = scroller.scrollTop
+    scrollOffsets.current.set(root, offsets)
+  }
+
+  function resetSearchScroll(): void {
+    if (scrollerRef.current) rememberScroll(scrollerRef.current)
+    const offsets = scrollOffsets.current.get(root)
+    if (offsets) offsets.search = 0
+  }
+
+  function changeQuery(value: string): void {
+    const target = value.trim()
+    if (target !== query) resetSearchScroll()
+    pendingFocus.current = searching && target === '' && workspace.active.browse !== undefined
+      ? { root, path: workspace.active.browse, reveal: false }
+      : null
+    update(previous => target === previous.query.trim()
+      ? { ...previous, query: value }
+      : { ...previous, query: value, matches: undefined, active: { browse: previous.active.browse ?? undefined } })
+  }
+
+  function clearSearch(): void {
+    inputRef.current?.focus({ preventScroll: true })
+    changeQuery('')
+  }
+
+  function toggle(path: string): void {
+    update(previous => {
+      const expanded = new Set(previous.expanded)
+      if (!expanded.delete(path)) expanded.add(path)
+      return { ...previous, expanded }
+    })
+  }
+
+  function activate(row: Row): void {
+    if (row.type === 'file') {
+      open(row.path)
+      return
+    }
+    if (row.type !== 'directory') return
+    if (!searching) {
+      toggle(row.path)
+      return
+    }
+    pendingFocus.current = { root, path: row.path, reveal: true }
+    resetSearchScroll()
+    scrollerRef.current?.focus({ preventScroll: true })
+    update(previous => {
+      const expanded = new Set(previous.expanded)
+      for (let path = row.path; path !== ''; path = parentOf(path)) expanded.add(path)
+      return { ...previous, query: '', matches: undefined, expanded, active: { browse: row.path } }
+    })
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (event.defaultPrevented || event.nativeEvent.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    const { key, target } = event
+    const atInput = target === inputRef.current
+    const atScroller = target === scrollerRef.current
+
+    if (key === 'Escape' && workspace.query !== '') {
+      event.preventDefault()
+      event.stopPropagation()
+      clearSearch()
+      return
+    }
+    const targetPath = target instanceof HTMLButtonElement ? target.dataset.path : undefined
+    const index = targetPath === undefined ? -1 : rows.findIndex(row => row.path === targetPath)
+    const row = rows[index]
+    if (atInput && searching && key === 'Enter') {
+      const result = rows.find(entry => entry.path === tabPath)
+      if (result) {
+        event.preventDefault()
+        activate(result)
+      }
+      return
+    }
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      if (!atInput && !atScroller && !row) return
+      const step = key === 'ArrowDown' ? 1 : -1
+      if (atScroller && step === 1) {
+        for (const entry of rows) {
+          if (!focusRow(entry.path, false)) continue
+          event.preventDefault()
+          pendingFocus.current = null
+          return
+        }
+      }
+      const next = atInput || atScroller ? (step === 1 ? rows[0] : undefined) : rows[index + step]
+      if (next) {
+        event.preventDefault()
+        pendingFocus.current = null
+        focusRow(next.path)
+      } else if (!atInput && key === 'ArrowUp') {
+        event.preventDefault()
+        pendingFocus.current = null
+        inputRef.current?.focus({ preventScroll: true })
+      }
+      return
+    }
+    if (!row || searching) return
+    if (key === 'ArrowRight' && row.type === 'directory') {
+      event.preventDefault()
+      if (!workspace.expanded.has(row.path)) toggle(row.path)
+      else {
+        const child = rows[index + 1]
+        if (child?.depth === row.depth + 1) focusRow(child.path)
+      }
+    } else if (key === 'ArrowLeft') {
+      event.preventDefault()
+      if (row.type === 'directory' && workspace.expanded.has(row.path)) toggle(row.path)
+      else if (row.depth > 0) focusRow(parentOf(row.path))
+    }
+  }
+
+  function renderRow(row: Row) {
+    const expanded = !searching && row.type === 'directory' ? workspace.expanded.has(row.path) : undefined
+    const parent = searching ? parentOf(row.path) : ''
+    return (
+      <button
+        type="button"
+        className="dsh-left-files__row"
+        key={`row:${row.path}`}
+        role={searching ? undefined : 'treeitem'}
+        aria-level={searching ? undefined : row.depth + 1}
+        aria-expanded={expanded}
+        aria-disabled={row.type === 'other' || undefined}
+        aria-label={searching ? row.path : undefined}
+        title={row.path}
+        data-path={row.path}
+        data-type={row.type}
+        tabIndex={row.path === tabPath ? 0 : -1}
+        style={{ '--left-files-depth': row.depth } as CSSProperties}
+        onFocus={() => {
+          rowFocused.current = true
+          update(previous => previous.active[view] === row.path ? previous : { ...previous, active: { ...previous.active, [view]: row.path } })
+        }}
+        onClick={() => { pendingFocus.current = null; activate(row) }}
+      >
+        {row.type === 'directory' && <span className="dsh-left-files__twisty" aria-hidden="true" />}
+        <span className="dsh-left-files__label">
+          <span className="dsh-left-files__name">{row.name}</span>
+          {parent !== '' && <span className="dsh-left-files__path" aria-hidden="true">{parent}</span>}
+        </span>
+      </button>
+    )
+  }
+
+  function renderNotice(status: TranslationKey, depth: number, retry: () => void) {
+    return (
+      <div className="dsh-left-files__notice" style={{ '--left-files-depth': depth } as CSSProperties}>
+        <span role={status === 'error' ? 'alert' : 'status'}>{t(status)}</span>
+        {status === 'error' && (
+          <button type="button" className="dsh-left-files__action" onClick={retry}>{t('retry')}</button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="dsh-left-files"
+      onKeyDown={onKeyDown}
+      onFocusCapture={event => {
+        focusWithin.current = true
+        rowFocused.current = event.target === scrollerRef.current
+      }}
+      onBlurCapture={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          focusWithin.current = false
+          pendingFocus.current = null
+        }
+      }}
+    >
+      <div className="dsh-left-files__search">
+        <input
+          ref={inputRef}
+          type="search"
+          autoComplete="off"
+          aria-label={t('search')}
+          placeholder={t('search')}
+          value={workspace.query}
+          onChange={event => changeQuery(event.currentTarget.value)}
+        />
+        {workspace.query !== '' && (
+          <button type="button" className="dsh-left-files__action" onClick={clearSearch}>{t('clear')}</button>
+        )}
+      </div>
+      <div
+        className="dsh-left-files__scroll"
+        ref={scrollerRef}
+        tabIndex={-1}
+        onScroll={event => rememberScroll(event.currentTarget)}
+      >
+        {searching ? (
+          <div role="group" aria-label={t('search')}>
+            {workspace.matches === undefined && <LoadEntries key={query} target={query} load={search} settle={settleSearch} />}
+            {rows.map(renderRow)}
+            {rows.length === 0 && renderNotice(
+              workspace.matches === undefined ? 'loading' : workspace.matches.kind === 'error' ? 'error' : 'empty',
+              0,
+              () => { inputRef.current?.focus({ preventScroll: true }); update(previous => ({ ...previous, matches: undefined })) },
+            )}
+          </div>
+        ) : (
+          <div role="tree" aria-label={root}>
+            {lines.map(line => {
+              if (line.kind === 'row') return renderRow(line.row)
+              const { path, depth, status } = line
+              return (
+                <div role="none" key={`status:${path}`}>
+                  {status === 'loading' && <LoadEntries key={root} target={path} load={loadDirectory} settle={settleDirectory} />}
+                  {renderNotice(status, depth, () => {
+                    if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true })
+                    update(previous => {
+                      const listings = new Map(previous.listings)
+                      listings.delete(path)
+                      return { ...previous, listings }
+                    })
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
