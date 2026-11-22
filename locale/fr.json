@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Navigation compacte dans les fichiers",
+    "description": "Parcourez les fichiers de l’espace de travail ou recherchez-les à côté de l’aperçu du document. Sélectionnez un fichier pour l’ouvrir dans l’aperçu intégré. Nécessite DeepSeek Harness 0.2.2-rc.5."
+  }
+}

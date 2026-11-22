@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Compact file navigation",
+    "description": "Browse or search workspace files beside the document preview. Select a file to open it in the built-in preview. Requires DeepSeek Harness 0.2.2-rc.5."
+  }
+}

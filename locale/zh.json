@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "紧凑文件导航",
+    "description": "在文档预览旁浏览或搜索工作区文件。选择文件即可在内置预览中打开。需要 DeepSeek Harness 0.2.2-rc.5。"
+  }
+}
