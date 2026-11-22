@@ -28,22 +28,13 @@ export const leftFilesCss = `
   padding: 6px;
 }
 
-.dsh-left-files__search input {
-  box-sizing: border-box;
+.dsh-left-files__field {
   flex: 1 1 0;
   min-inline-size: 0;
-  min-block-size: 28px;
-  padding-inline: 6px;
-  appearance: none;
-  color: inherit;
-  background: var(--dsw-alias-bg-overlay);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  font: inherit;
 }
 
-.dsh-left-files__search input::placeholder {
-  color: var(--dsw-alias-label-secondary);
+.dsh-left-files__field input {
+  min-inline-size: 0;
 }
 
 .dsh-left-files__search input::-webkit-search-cancel-button {
@@ -61,8 +52,7 @@ export const leftFilesCss = `
   padding-block-end: 6px;
 }
 
-.dsh-left-files__row,
-.dsh-left-files__action {
+.dsh-left-files__row {
   box-sizing: border-box;
   color: inherit;
   background: none;
@@ -96,27 +86,19 @@ export const leftFilesCss = `
   cursor: default;
 }
 
-.dsh-left-files__twisty {
+.dsh-left-files__icon {
+  flex: none;
+  margin-inline-end: 6px;
+  margin-block-start: 1px;
+}
+
+.dsh-left-files__row[aria-level]:not([aria-level='1'])::before {
+  content: '';
   position: absolute;
-  inset-inline-start: calc(6px + var(--left-files-indent));
-  inset-block-start: calc(4px + .48em);
-  inline-size: .4em;
-  block-size: .4em;
-  border-inline-end: 1px solid currentColor;
-  border-block-end: 1px solid currentColor;
-  transform: rotate(-45deg);
-}
-
-.dsh-left-files__twisty:dir(rtl) {
-  transform: rotate(45deg);
-}
-
-.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty {
-  transform: rotate(45deg);
-}
-
-.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty:dir(rtl) {
-  transform: rotate(-45deg);
+  inset-block: 0;
+  inset-inline-start: calc(12px + var(--left-files-indent) - var(--left-files-step));
+  border-inline-start: 1px solid var(--dsw-alias-border-l2);
+  pointer-events: none;
 }
 
 .dsh-left-files__label {
@@ -125,37 +107,52 @@ export const leftFilesCss = `
 }
 
 .dsh-left-files__name,
-.dsh-left-files__path {
+.dsh-left-files__tail {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .dsh-left-files__path {
-  direction: rtl;
-  text-align: left;
+  display: flex;
+  align-items: flex-end;
+  direction: ltr;
+  font: var(--dsw-font-xxs-12);
 }
 
-@container (min-width: 220px) {
-  .dsh-left-files__path {
-    direction: ltr;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
-    overflow-wrap: anywhere;
+.dsh-left-files__prefix {
+  display: -webkit-box;
+  min-inline-size: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsh-left-files__tail {
+  flex: 0 0 auto;
+  max-inline-size: 100%;
+  direction: rtl;
+}
+
+@container (width < 220px) {
+  .dsh-left-files__prefix {
+    display: block;
+    direction: rtl;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 
-.dsh-left-files__path,
-.dsh-left-files__notice {
-  color: var(--dsw-alias-label-secondary);
+.dsh-left-files__label mark {
+  color: var(--dsw-alias-state-business-primary);
+  background: transparent;
 }
 
-.dsh-left-files__action {
-  min-block-size: 24px;
-  padding-inline: 6px;
-  background: var(--dsw-alias-interactive-bg-hover);
+.dsh-left-files__tail,
+.dsh-left-files__notice {
+  color: var(--dsw-alias-label-secondary);
 }
 
 .dsh-left-files__notice {
@@ -171,7 +168,7 @@ export const leftFilesCss = `
   color: var(--dsw-alias-label-primary);
 }
 
-.dsh-left-files :is(button, input, [tabindex]):focus-visible {
+.dsh-left-files :is(.dsh-left-files__row, .dsh-left-files__scroll):focus-visible {
   outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -1px;
 }
@@ -181,9 +178,6 @@ export const leftFilesCss = `
     background: var(--dsw-alias-interactive-bg-hover);
   }
 
-  .dsh-left-files__action:hover {
-    background: var(--dsw-alias-interactive-bg-active);
-  }
 }
 
 @media (pointer: coarse) {
@@ -191,8 +185,7 @@ export const leftFilesCss = `
     font-size: max(16px, 1em);
   }
   .dsh-left-files__search input,
-  .dsh-left-files__row,
-  .dsh-left-files__action {
+  .dsh-left-files__row {
     min-block-size: 40px;
   }
 }

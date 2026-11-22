@@ -1,6 +1,7 @@
 /** Workspace file browsing and search for a height-bounded sidebar. */
 import { useCallback, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react'
-import type { CSSProperties, KeyboardEvent } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
+import { Button, FileTypeIcon, IconCloseOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconSearchOutlineRegular, Input, Tooltip, classifyFileType } from '@deepseek-ai/dsh-client-ui-primitives'
 
 type EntryType = 'directory' | 'file' | 'other'
 type DirectoryEntry = { readonly name: string; readonly type: EntryType }
@@ -48,6 +49,21 @@ function absoluteDirectory(root: string, relative: string): string {
 function parentOf(path: string): string {
   const split = path.lastIndexOf('/')
   return split < 0 ? '' : path.slice(0, split)
+}
+
+/** Mark the portion of each match that falls within this label segment. */
+function markedText(text: string, matches: Iterable<RegExpMatchArray>, offset = 0): ReactNode {
+  const parts: ReactNode[] = []
+  let cursor = 0
+  for (const match of matches) {
+    const start = (match.index ?? 0) - offset
+    const end = Math.min(text.length, start + match[0].length)
+    if (end <= 0 || start >= text.length) continue
+    const from = Math.max(0, start)
+    parts.push(text.slice(cursor, from), <mark key={from}>{text.slice(from, end)}</mark>)
+    cursor = end
+  }
+  return cursor === 0 ? text : [...parts, text.slice(cursor)]
 }
 
 function browseLines(listings: Workspace['listings'], expanded: Workspace['expanded']): BrowseLine[] {
@@ -101,6 +117,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
   const [workspaces, setWorkspaces] = useState<ReadonlyMap<string, Workspace>>(() => new Map())
   const workspace = workspaces.get(root) ?? initialWorkspace
   const query = workspace.query.trim()
+  const matchPattern = useMemo(() => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu'), [query])
   const searching = query !== ''
   const view: View = searching ? 'search' : 'browse'
   const { expanded, listings, matches } = workspace
@@ -314,6 +331,12 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
   function renderRow(row: Row) {
     const expanded = !searching && row.type === 'directory' ? workspace.expanded.has(row.path) : undefined
     const parent = searching ? parentOf(row.path) : ''
+    const pathQuery = query.includes('/')
+    const pathMatches = pathQuery ? [...row.path.matchAll(matchPattern)] : []
+    const name = !searching ? row.name : pathQuery
+      ? markedText(row.name, pathMatches, parent.length + (parent === '' ? 0 : 1))
+      : markedText(row.name, row.name.matchAll(matchPattern))
+    const tailStart = parent.lastIndexOf('/') + 1
     return (
       <button
         type="button"
@@ -335,10 +358,19 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
         }}
         onClick={() => { pendingFocus.current = null; activate(row) }}
       >
-        {row.type === 'directory' && <span className="dsh-left-files__twisty" aria-hidden="true" />}
+        {row.type === 'directory'
+          ? expanded
+            ? <IconFolderOpenRegular size={16} className="dsh-left-files__icon" />
+            : <IconFolderCloseRegular size={16} className="dsh-left-files__icon" />
+          : <FileTypeIcon kind={classifyFileType(row.name)} size={16} className="dsh-left-files__icon" />}
         <span className="dsh-left-files__label">
-          <span className="dsh-left-files__name">{row.name}</span>
-          {parent !== '' && <span className="dsh-left-files__path" aria-hidden="true">{parent}</span>}
+          <span className="dsh-left-files__name">{name}</span>
+          {parent !== '' && (
+            <span className="dsh-left-files__path" aria-hidden="true">
+              {tailStart > 0 && <span className="dsh-left-files__prefix"><bdi dir="ltr">{markedText(parent.slice(0, tailStart), pathMatches)}</bdi></span>}
+              <span className="dsh-left-files__tail"><bdi dir="ltr">{markedText(parent.slice(tailStart), pathMatches, tailStart)}</bdi></span>
+            </span>
+          )}
         </span>
       </button>
     )
@@ -349,7 +381,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       <div className="dsh-left-files__notice" style={{ '--left-files-depth': depth } as CSSProperties}>
         <span role={status === 'error' ? 'alert' : 'status'}>{t(status)}</span>
         {status === 'error' && (
-          <button type="button" className="dsh-left-files__action" onClick={retry}>{t('retry')}</button>
+          <Button size="sm" onClick={retry}>{t('retry')}</Button>
         )}
       </div>
     )
@@ -371,8 +403,10 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       }}
     >
       <div className="dsh-left-files__search">
-        <input
+        <Input
           ref={inputRef}
+          className="dsh-left-files__field"
+          icon={<IconSearchOutlineRegular size={14} />}
           type="search"
           autoComplete="off"
           aria-label={t('search')}
@@ -381,7 +415,9 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
           onChange={event => changeQuery(event.currentTarget.value)}
         />
         {workspace.query !== '' && (
-          <button type="button" className="dsh-left-files__action" onClick={clearSearch}>{t('clear')}</button>
+          <Tooltip label={t('clear')} side="top" portal>
+            <Button size="sm" aria-label={t('clear')} onClick={clearSearch} icon={<IconCloseOutlineRegular size={14} />} />
+          </Tooltip>
         )}
       </div>
       <div

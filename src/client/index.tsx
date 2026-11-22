@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Button, IconFolderCloseRegular, IconFolderOpenRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/client'
@@ -48,12 +49,9 @@ const footerCss = `
 div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files:not([data-rail])) { flex-wrap: wrap; }
 .left-workspace-files { flex: 0 0 100%; min-width: 0; color: var(--dsw-alias-label-primary); }
 .left-workspace-files[data-rail] { flex-basis: auto; }
-.left-workspace-files > button { width: 100%; min-height: 32px; display: flex; gap: 7px; align-items: center; padding: 0 8px; text-align: start; border: 0; border-radius: var(--dsw-radius-md); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.left-workspace-files > button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
-.left-workspace-files > button svg { flex: none; }
-.left-workspace-files > button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
+.left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
-@media (hover:hover) { .left-workspace-files > button:hover { background: var(--dsw-alias-interactive-bg-hover); } }
 .left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
 .left-workspace-files [data-left-files-pane] { height: min(36vh, 360px); min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
@@ -70,18 +68,17 @@ function Footer({ wide, useMountedSession, useSessions, connect, expand, t }: Fo
   const shown = opened && wide
   return <section className="left-workspace-files" data-rail={wide ? undefined : ''}>
     <style>{footerCss + leftFilesCss}</style>
-    <button type="button" aria-label={t('title')} title={wide ? undefined : t('title')} aria-expanded={shown}
-      onClick={() => {
-        if (!wide) expand()
-        setOpened(!shown)
-        setActivated(true)
-      }}>
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
-        <path d="M1.8 4.2V12h12.4V4.9H8.1L6.7 3.2H2.8a1 1 0 0 0-1 1Z" strokeLinejoin="round" />
-        <path d="M2 6.7h12" />
-      </svg>
-      {wide && <span>{t('title')}</span>}
-    </button>
+    <Tooltip label={t('title')} side="right" disabled={wide} portal>
+      <Button aria-label={t('title')} aria-expanded={shown}
+        icon={shown ? <IconFolderOpenRegular size={16} /> : <IconFolderCloseRegular size={16} />}
+        onClick={() => {
+          if (!wide) expand()
+          setOpened(!shown)
+          setActivated(true)
+        }}>
+        {wide && <span className="left-workspace-files__title">{t('title')}</span>}
+      </Button>
+    </Tooltip>
     {activated && <div data-left-files-pane="" hidden={!shown}>
       {root === undefined || session === undefined
         ? <p data-left-files-notice="">{t('noSession')}</p>

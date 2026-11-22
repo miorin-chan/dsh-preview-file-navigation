@@ -11,7 +11,7 @@ async function client() {
   new Script(source).runInNewContext({ window: { __ModuleLoader__: { load(entry) { registration = entry } } } })
   assert.equal(registration?.id, manifest.name)
   return registration.factory(id => {
-    assert.ok(id === 'react' || id === 'react/jsx-runtime')
+    assert.ok(['react', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-primitives'].includes(id))
     return {}
   })
 }

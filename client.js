@@ -35,9 +35,11 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 var import_react2 = require("react");
+var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // src/client/LeftFiles.tsx
 var import_react = require("react");
+var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 var import_jsx_runtime = require("react/jsx-runtime");
 var initialWorkspace = { query: "", expanded: /* @__PURE__ */ new Set(), listings: /* @__PURE__ */ new Map(), active: {} };
 var byName = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
@@ -50,6 +52,19 @@ function absoluteDirectory(root, relative) {
 function parentOf(path) {
   const split = path.lastIndexOf("/");
   return split < 0 ? "" : path.slice(0, split);
+}
+function markedText(text, matches, offset = 0) {
+  const parts = [];
+  let cursor = 0;
+  for (const match of matches) {
+    const start = (match.index ?? 0) - offset;
+    const end = Math.min(text.length, start + match[0].length);
+    if (end <= 0 || start >= text.length) continue;
+    const from = Math.max(0, start);
+    parts.push(text.slice(cursor, from), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("mark", { children: text.slice(from, end) }, from));
+    cursor = end;
+  }
+  return cursor === 0 ? text : [...parts, text.slice(cursor)];
 }
 function browseLines(listings, expanded) {
   const lines = [];
@@ -90,6 +105,7 @@ function LeftFiles({ root, list, search, open, t }) {
   const [workspaces, setWorkspaces] = (0, import_react.useState)(() => /* @__PURE__ */ new Map());
   const workspace = workspaces.get(root) ?? initialWorkspace;
   const query = workspace.query.trim();
+  const matchPattern = (0, import_react.useMemo)(() => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu"), [query]);
   const searching = query !== "";
   const view = searching ? "search" : "browse";
   const { expanded, listings, matches } = workspace;
@@ -280,6 +296,10 @@ function LeftFiles({ root, list, search, open, t }) {
   function renderRow(row) {
     const expanded2 = !searching && row.type === "directory" ? workspace.expanded.has(row.path) : void 0;
     const parent = searching ? parentOf(row.path) : "";
+    const pathQuery = query.includes("/");
+    const pathMatches = pathQuery ? [...row.path.matchAll(matchPattern)] : [];
+    const name = !searching ? row.name : pathQuery ? markedText(row.name, pathMatches, parent.length + (parent === "" ? 0 : 1)) : markedText(row.name, row.name.matchAll(matchPattern));
+    const tailStart = parent.lastIndexOf("/") + 1;
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
       "button",
       {
@@ -304,10 +324,13 @@ function LeftFiles({ root, list, search, open, t }) {
           activate(row);
         },
         children: [
-          row.type === "directory" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__twisty", "aria-hidden": "true" }),
+          row.type === "directory" ? expanded2 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconFolderOpenRegular, { size: 16, className: "dsh-left-files__icon" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconFolderCloseRegular, { size: 16, className: "dsh-left-files__icon" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.FileTypeIcon, { kind: (0, import_dsh_client_ui_primitives.classifyFileType)(row.name), size: 16, className: "dsh-left-files__icon" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-left-files__label", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__name", children: row.name }),
-            parent !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__path", "aria-hidden": "true", children: parent })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__name", children: name }),
+            parent !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "dsh-left-files__path", "aria-hidden": "true", children: [
+              tailStart > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__prefix", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("bdi", { dir: "ltr", children: markedText(parent.slice(0, tailStart), pathMatches) }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-left-files__tail", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("bdi", { dir: "ltr", children: markedText(parent.slice(tailStart), pathMatches, tailStart) }) })
+            ] })
           ] })
         ]
       },
@@ -317,7 +340,7 @@ function LeftFiles({ root, list, search, open, t }) {
   function renderNotice(status, depth, retry) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-left-files__notice", style: { "--left-files-depth": depth }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { role: status === "error" ? "alert" : "status", children: t(status) }),
-      status === "error" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-left-files__action", onClick: retry, children: t("retry") })
+      status === "error" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Button, { size: "sm", onClick: retry, children: t("retry") })
     ] });
   }
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
@@ -338,9 +361,11 @@ function LeftFiles({ root, list, search, open, t }) {
       children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-left-files__search", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "input",
+            import_dsh_client_ui_primitives.Input,
             {
               ref: inputRef,
+              className: "dsh-left-files__field",
+              icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: 14 }),
               type: "search",
               autoComplete: "off",
               "aria-label": t("search"),
@@ -349,7 +374,7 @@ function LeftFiles({ root, list, search, open, t }) {
               onChange: (event) => changeQuery(event.currentTarget.value)
             }
           ),
-          workspace.query !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "dsh-left-files__action", onClick: clearSearch, children: t("clear") })
+          workspace.query !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Tooltip, { label: t("clear"), side: "top", portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Button, { size: "sm", "aria-label": t("clear"), onClick: clearSearch, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 }) }) })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
           "div",
@@ -421,22 +446,13 @@ var leftFilesCss = `
   padding: 6px;
 }
 
-.dsh-left-files__search input {
-  box-sizing: border-box;
+.dsh-left-files__field {
   flex: 1 1 0;
   min-inline-size: 0;
-  min-block-size: 28px;
-  padding-inline: 6px;
-  appearance: none;
-  color: inherit;
-  background: var(--dsw-alias-bg-overlay);
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 6px;
-  font: inherit;
 }
 
-.dsh-left-files__search input::placeholder {
-  color: var(--dsw-alias-label-secondary);
+.dsh-left-files__field input {
+  min-inline-size: 0;
 }
 
 .dsh-left-files__search input::-webkit-search-cancel-button {
@@ -454,8 +470,7 @@ var leftFilesCss = `
   padding-block-end: 6px;
 }
 
-.dsh-left-files__row,
-.dsh-left-files__action {
+.dsh-left-files__row {
   box-sizing: border-box;
   color: inherit;
   background: none;
@@ -489,27 +504,19 @@ var leftFilesCss = `
   cursor: default;
 }
 
-.dsh-left-files__twisty {
+.dsh-left-files__icon {
+  flex: none;
+  margin-inline-end: 6px;
+  margin-block-start: 1px;
+}
+
+.dsh-left-files__row[aria-level]:not([aria-level='1'])::before {
+  content: '';
   position: absolute;
-  inset-inline-start: calc(6px + var(--left-files-indent));
-  inset-block-start: calc(4px + .48em);
-  inline-size: .4em;
-  block-size: .4em;
-  border-inline-end: 1px solid currentColor;
-  border-block-end: 1px solid currentColor;
-  transform: rotate(-45deg);
-}
-
-.dsh-left-files__twisty:dir(rtl) {
-  transform: rotate(45deg);
-}
-
-.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty {
-  transform: rotate(45deg);
-}
-
-.dsh-left-files__row[aria-expanded='true'] .dsh-left-files__twisty:dir(rtl) {
-  transform: rotate(-45deg);
+  inset-block: 0;
+  inset-inline-start: calc(12px + var(--left-files-indent) - var(--left-files-step));
+  border-inline-start: 1px solid var(--dsw-alias-border-l2);
+  pointer-events: none;
 }
 
 .dsh-left-files__label {
@@ -518,37 +525,52 @@ var leftFilesCss = `
 }
 
 .dsh-left-files__name,
-.dsh-left-files__path {
+.dsh-left-files__tail {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .dsh-left-files__path {
-  direction: rtl;
-  text-align: left;
+  display: flex;
+  align-items: flex-end;
+  direction: ltr;
+  font: var(--dsw-font-xxs-12);
 }
 
-@container (min-width: 220px) {
-  .dsh-left-files__path {
-    direction: ltr;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    white-space: normal;
-    overflow-wrap: anywhere;
+.dsh-left-files__prefix {
+  display: -webkit-box;
+  min-inline-size: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dsh-left-files__tail {
+  flex: 0 0 auto;
+  max-inline-size: 100%;
+  direction: rtl;
+}
+
+@container (width < 220px) {
+  .dsh-left-files__prefix {
+    display: block;
+    direction: rtl;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 }
 
-.dsh-left-files__path,
-.dsh-left-files__notice {
-  color: var(--dsw-alias-label-secondary);
+.dsh-left-files__label mark {
+  color: var(--dsw-alias-state-business-primary);
+  background: transparent;
 }
 
-.dsh-left-files__action {
-  min-block-size: 24px;
-  padding-inline: 6px;
-  background: var(--dsw-alias-interactive-bg-hover);
+.dsh-left-files__tail,
+.dsh-left-files__notice {
+  color: var(--dsw-alias-label-secondary);
 }
 
 .dsh-left-files__notice {
@@ -564,7 +586,7 @@ var leftFilesCss = `
   color: var(--dsw-alias-label-primary);
 }
 
-.dsh-left-files :is(button, input, [tabindex]):focus-visible {
+.dsh-left-files :is(.dsh-left-files__row, .dsh-left-files__scroll):focus-visible {
   outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -1px;
 }
@@ -574,9 +596,6 @@ var leftFilesCss = `
     background: var(--dsw-alias-interactive-bg-hover);
   }
 
-  .dsh-left-files__action:hover {
-    background: var(--dsw-alias-interactive-bg-active);
-  }
 }
 
 @media (pointer: coarse) {
@@ -584,8 +603,7 @@ var leftFilesCss = `
     font-size: max(16px, 1em);
   }
   .dsh-left-files__search input,
-  .dsh-left-files__row,
-  .dsh-left-files__action {
+  .dsh-left-files__row {
     min-block-size: 40px;
   }
 }
@@ -627,12 +645,9 @@ var footerCss = `
 div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files:not([data-rail])) { flex-wrap: wrap; }
 .left-workspace-files { flex: 0 0 100%; min-width: 0; color: var(--dsw-alias-label-primary); }
 .left-workspace-files[data-rail] { flex-basis: auto; }
-.left-workspace-files > button { width: 100%; min-height: 32px; display: flex; gap: 7px; align-items: center; padding: 0 8px; text-align: start; border: 0; border-radius: var(--dsw-radius-md); background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.left-workspace-files > button:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: -2px; }
-.left-workspace-files > button svg { flex: none; }
-.left-workspace-files > button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
+.left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
-@media (hover:hover) { .left-workspace-files > button:hover { background: var(--dsw-alias-interactive-bg-hover); } }
 .left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
 .left-workspace-files [data-left-files-pane] { height: min(36vh, 360px); min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
@@ -648,27 +663,20 @@ function Footer({ wide, useMountedSession, useSessions, connect, expand, t }) {
   const shown = opened && wide;
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "left-workspace-files", "data-rail": wide ? void 0 : "", children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: footerCss + leftFilesCss }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      "button",
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: t("title"), side: "right", disabled: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      import_dsh_client_ui_primitives2.Button,
       {
-        type: "button",
         "aria-label": t("title"),
-        title: wide ? void 0 : t("title"),
         "aria-expanded": shown,
+        icon: shown ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderOpenRegular, { size: 16 }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderCloseRegular, { size: 16 }),
         onClick: () => {
           if (!wide) expand();
           setOpened(!shown);
           setActivated(true);
         },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("svg", { width: "16", height: "16", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.2", "aria-hidden": "true", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M1.8 4.2V12h12.4V4.9H8.1L6.7 3.2H2.8a1 1 0 0 0-1 1Z", strokeLinejoin: "round" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M2 6.7h12" })
-          ] }),
-          wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t("title") })
-        ]
+        children: wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "left-workspace-files__title", children: t("title") })
       }
-    ),
+    ) }),
     activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-left-files-pane": "", hidden: !shown, children: [
       root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeftFiles, { root, list: session.list, search: session.search, t, open: (path) => setOpenFailed(!session.open(path)) }),
       openFailed && shown && root !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
