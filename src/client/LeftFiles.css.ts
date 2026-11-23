@@ -272,11 +272,15 @@ export const leftFilesCss = `
   outline-offset: -1px;
 }
 
+/* Native hover clipping in Rows.module.css (.sessionRow:hover .title). */
 @media (hover: hover) {
+  .dsh-left-files__row:hover .dsh-left-files__name {
+    text-overflow: clip;
+  }
+
   .dsh-left-files__row:not([aria-disabled='true']):hover {
     background: var(--dsw-alias-interactive-bg-hover);
   }
-
 }
 
 @media (pointer: coarse) {

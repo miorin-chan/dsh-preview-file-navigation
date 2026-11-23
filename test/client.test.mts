@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { Script } from 'node:vm'
 import { test } from 'node:test'
+import { leftFilesCss } from '../src/client/LeftFiles.css.ts'
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -52,4 +53,9 @@ test('package patch leaves the native right sidebar plugin active', async () => 
   assert.doesNotMatch(patch, /ui-sidebar-files|disabled:/)
   assert.ok(patch.includes(`name: '${manifest.name}'`))
   assert.equal(typeof (await import('../index.js')).apply, 'function')
+})
+
+test('hover-capable file rows drop the ellipsis so the marquee can reveal the suffix', () => {
+  const hoverClip = /@media \(hover: hover\)\s*\{\s*\.dsh-left-files__row:hover \.dsh-left-files__name\s*\{\s*text-overflow: clip;/
+  assert.ok(hoverClip.test(leftFilesCss))
 })
