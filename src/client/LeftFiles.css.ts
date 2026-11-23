@@ -187,6 +187,7 @@ export const leftFilesCss = `
 
 .dsh-left-files__label {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
 }
 
@@ -195,6 +196,20 @@ export const leftFilesCss = `
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Fades from @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5,
+   src/client/rows/Rows.module.css (.sessionRow .title). */
+.dsh-left-files__name[data-scrolled] {
+  mask-image: linear-gradient(to right, transparent, #000 12px);
+}
+
+.dsh-left-files__name[data-clipped] {
+  mask-image: linear-gradient(to left, transparent, #000 12px);
+}
+
+.dsh-left-files__name[data-scrolled][data-clipped] {
+  mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
 }
 
 .dsh-left-files__path {

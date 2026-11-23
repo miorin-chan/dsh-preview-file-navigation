@@ -5,6 +5,7 @@ import {
   Button, FileTypeIcon, IconCloseFillRegular, IconFolderCloseRegular, IconFolderOpenRegular,
   IconSearchOutlineRegular, Tooltip, classifyFileType,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useTitleMarquee } from './useTitleMarquee.js'
 
 type EntryType = 'directory' | 'file' | 'other'
 type DirectoryEntry = { readonly name: string; readonly type: EntryType }
@@ -79,6 +80,73 @@ function markedText(text: string, matches: Iterable<RegExpMatchArray>, offset = 
     cursor = end
   }
   return cursor === 0 ? text : [...parts, text.slice(cursor)]
+}
+
+function FileRow({ row, root, shown, expanded, query, matchPattern, tabIndex, onFocus, onClick }: {
+  readonly row: Row
+  readonly root: string
+  readonly shown: boolean
+  readonly expanded: boolean | undefined
+  readonly query: string
+  readonly matchPattern: RegExp
+  readonly tabIndex: 0 | -1
+  readonly onFocus: () => void
+  readonly onClick: () => void
+}) {
+  const rowRef = useRef<HTMLButtonElement>(null)
+  const nameRef = useRef<HTMLSpanElement>(null)
+  const marquee = useTitleMarquee(nameRef)
+  useLayoutEffect(() => {
+    if (shown && rowRef.current?.matches(':hover') && window.matchMedia('(any-hover: hover)').matches) {
+      marquee.enter()
+    }
+    return marquee.leave
+  }, [root, shown, marquee])
+
+  const searching = query !== ''
+  const parent = searching ? parentOf(row.path) : ''
+  const pathQuery = query.includes('/')
+  const pathMatches = pathQuery ? [...row.path.matchAll(matchPattern)] : []
+  const name = !searching ? row.name : pathQuery
+    ? markedText(row.name, pathMatches, parent.length + (parent === '' ? 0 : 1))
+    : markedText(row.name, row.name.matchAll(matchPattern))
+  const tailStart = parent.lastIndexOf('/') + 1
+  return (
+    <button
+      ref={rowRef}
+      type="button"
+      className="dsh-left-files__row"
+      role={searching ? undefined : 'treeitem'}
+      aria-level={searching ? undefined : row.depth + 1}
+      aria-expanded={expanded}
+      aria-disabled={row.type === 'other' || undefined}
+      aria-label={searching ? row.path : undefined}
+      title={row.path}
+      data-path={row.path}
+      data-type={row.type}
+      tabIndex={tabIndex}
+      style={{ '--left-files-depth': row.depth } as CSSProperties}
+      onFocus={onFocus}
+      onClick={onClick}
+      onPointerEnter={marquee.enter}
+      onPointerLeave={marquee.leave}
+    >
+      {row.type === 'directory'
+        ? expanded
+          ? <IconFolderOpenRegular size={16} className="dsh-left-files__icon" />
+          : <IconFolderCloseRegular size={16} className="dsh-left-files__icon" />
+        : <FileTypeIcon kind={classifyFileType(row.name)} size={16} className="dsh-left-files__icon" />}
+      <span className="dsh-left-files__label">
+        <span ref={nameRef} className="dsh-left-files__name">{name}</span>
+        {parent !== '' && (
+          <span className="dsh-left-files__path" aria-hidden="true">
+            {tailStart > 0 && <span className="dsh-left-files__prefix"><bdi dir="ltr">{markedText(parent.slice(0, tailStart), pathMatches)}</bdi></span>}
+            <span className="dsh-left-files__tail"><bdi dir="ltr">{markedText(parent.slice(tailStart), pathMatches, tailStart)}</bdi></span>
+          </span>
+        )}
+      </span>
+    </button>
+  )
 }
 
 function browseLines(listings: Workspace['listings'], expanded: Workspace['expanded']): BrowseLine[] {
@@ -379,49 +447,22 @@ export function LeftFiles({ root, list, search, open, titleButton, wide, shown, 
 
   function renderRow(row: Row) {
     const expanded = !searching && row.type === 'directory' ? workspace.expanded.has(row.path) : undefined
-    const parent = searching ? parentOf(row.path) : ''
-    const pathQuery = query.includes('/')
-    const pathMatches = pathQuery ? [...row.path.matchAll(matchPattern)] : []
-    const name = !searching ? row.name : pathQuery
-      ? markedText(row.name, pathMatches, parent.length + (parent === '' ? 0 : 1))
-      : markedText(row.name, row.name.matchAll(matchPattern))
-    const tailStart = parent.lastIndexOf('/') + 1
     return (
-      <button
-        type="button"
-        className="dsh-left-files__row"
+      <FileRow
         key={`row:${row.path}`}
-        role={searching ? undefined : 'treeitem'}
-        aria-level={searching ? undefined : row.depth + 1}
-        aria-expanded={expanded}
-        aria-disabled={row.type === 'other' || undefined}
-        aria-label={searching ? row.path : undefined}
-        title={row.path}
-        data-path={row.path}
-        data-type={row.type}
+        row={row}
+        root={root}
+        shown={shown}
+        expanded={expanded}
+        query={query}
+        matchPattern={matchPattern}
         tabIndex={row.path === tabPath ? 0 : -1}
-        style={{ '--left-files-depth': row.depth } as CSSProperties}
         onFocus={() => {
           rowFocused.current = true
           update(previous => previous.active[view] === row.path ? previous : { ...previous, active: { ...previous.active, [view]: row.path } })
         }}
         onClick={() => { pendingFocus.current = null; activate(row) }}
-      >
-        {row.type === 'directory'
-          ? expanded
-            ? <IconFolderOpenRegular size={16} className="dsh-left-files__icon" />
-            : <IconFolderCloseRegular size={16} className="dsh-left-files__icon" />
-          : <FileTypeIcon kind={classifyFileType(row.name)} size={16} className="dsh-left-files__icon" />}
-        <span className="dsh-left-files__label">
-          <span className="dsh-left-files__name">{name}</span>
-          {parent !== '' && (
-            <span className="dsh-left-files__path" aria-hidden="true">
-              {tailStart > 0 && <span className="dsh-left-files__prefix"><bdi dir="ltr">{markedText(parent.slice(0, tailStart), pathMatches)}</bdi></span>}
-              <span className="dsh-left-files__tail"><bdi dir="ltr">{markedText(parent.slice(tailStart), pathMatches, tailStart)}</bdi></span>
-            </span>
-          )}
-        </span>
-      </button>
+      />
     )
   }
 
