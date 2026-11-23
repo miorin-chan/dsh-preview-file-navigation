@@ -1,8 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import {
-  Button, IconChevronRightOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconFolderCloseRegular, IconTriangleRightFillRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/client'
@@ -79,44 +77,66 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files__header { display: flex; flex: none; align-items: center; min-inline-size: 0; }
 .left-workspace-files__trigger { flex: none; }
-.left-workspace-files:not([data-rail]) button.left-workspace-files__trigger {
-  inline-size: 100%;
-  min-inline-size: 0;
-  overflow: hidden;
-  block-size: 32px;
-  border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent;
-  padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
-  gap: var(--dsh-sidebar-label-gap, 6px);
-  justify-content: flex-start;
-  text-align: start;
-  background-clip: padding-box;
-}
-.left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
-.left-workspace-files__trigger[aria-expanded='true']:not(:active) {
-  background-color: var(--dsw-alias-interactive-bg-hover);
-}
 .left-workspace-files__trigger:focus-visible {
   outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -2px;
 }
-.left-workspace-files__icon, .left-workspace-files__chevron { color: var(--dsw-alias-label-tertiary); }
+.left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
+.left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
+/* The wide header reads as a sidebar section header, not a row: the label follows
+   .sectionHeader and .sectionLabel in src/client/rows/WorkspaceBrowser.module.css, and the
+   arrow follows .arrow and .chevron in src/client/rows/Rows.module.css, both from
+   @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. The arrow box matches the native
+   Sessions header toggle of dsh-workspace-list-toggle. */
+.left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: 36px; }
+.left-workspace-files:not([data-rail]) .left-workspace-files__trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-inline-size: calc(100% - var(--dsh-sidebar-row-padding, 12px) + 5px);
+  block-size: 24px;
+  margin: 0;
+  margin-inline-start: calc(var(--dsh-sidebar-row-padding, 12px) - 5px);
+  padding: 0;
+  padding-inline-start: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
 .left-workspace-files__title {
-  flex: 1;
+  flex: 0 1 auto;
   min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
   line-height: 20px;
 }
-.left-workspace-files__chevron {
+.left-workspace-files__arrow {
+  display: inline-grid;
   flex: none;
-  transition: transform 150ms var(--ds-ease-in-out, ease-in-out);
+  place-items: center;
+  inline-size: 22px;
+  block-size: 24px;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-caption);
 }
-.left-workspace-files__trigger:dir(rtl) .left-workspace-files__chevron { transform: rotate(180deg); }
-.left-workspace-files__trigger[aria-expanded='true'] .left-workspace-files__chevron { transform: rotate(90deg); }
+.left-workspace-files__arrow > svg { transition: transform 150ms var(--ds-ease-in-out, ease-in-out); }
+.left-workspace-files__trigger:dir(rtl) .left-workspace-files__arrow > svg { transform: rotate(180deg); }
+.left-workspace-files__trigger[aria-expanded='true'] .left-workspace-files__arrow > svg { transform: rotate(90deg); }
+@media (hover: hover) {
+  .left-workspace-files:not([data-rail]) .left-workspace-files__trigger:hover { color: var(--dsw-alias-label-secondary); }
+  .left-workspace-files__trigger:hover .left-workspace-files__arrow {
+    background: var(--dsw-alias-interactive-bg-hover);
+    color: var(--dsw-alias-label-secondary);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .left-workspace-files__chevron { transition: none; }
+  .left-workspace-files__arrow > svg { transition: none; }
 }
 .left-workspace-files [data-left-files-pane] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
@@ -180,30 +200,34 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const paneId = useId()
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
   const shown = opened && wide
-  const FolderIcon = shown ? IconFolderOpenRegular : IconFolderCloseRegular
   useLayoutEffect(() => {
     container.toggleAttribute('data-open', shown)
   }, [container, shown])
+  const triggerProps = {
+    ref: trigger,
+    className: 'left-workspace-files__trigger',
+    'aria-label': triggerLabel,
+    'aria-expanded': shown,
+    'aria-controls': activated ? paneId : undefined,
+    onClick: () => {
+      if (!wide) expand()
+      setOpened(!shown)
+      setActivated(true)
+    },
+  }
+  // The wide sidebar shows a section header; the rail keeps a 36px icon button.
   const titleButton = (
     <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
-      <Button
-        ref={trigger}
-        className="left-workspace-files__trigger"
-        aria-label={triggerLabel}
-        aria-expanded={shown}
-        aria-controls={activated ? paneId : undefined}
-        icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
-        onClick={() => {
-          if (!wide) expand()
-          setOpened(!shown)
-          setActivated(true)
-        }}
-      >
-        {wide && <>
+      {wide ? (
+        <button type="button" {...triggerProps}>
           <span className="left-workspace-files__title">{title}</span>
-          <IconChevronRightOutlineRegular size={12} className="left-workspace-files__chevron" />
-        </>}
-      </Button>
+          <span className="left-workspace-files__arrow" aria-hidden="true">
+            <IconTriangleRightFillRegular size={16} />
+          </span>
+        </button>
+      ) : (
+        <Button {...triggerProps} icon={<IconFolderCloseRegular size={16} className="left-workspace-files__icon" />} />
+      )}
     </Tooltip>
   )
   return <>
