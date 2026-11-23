@@ -511,6 +511,10 @@ var leftFilesCss = `
   margin-block-start: 1px;
 }
 
+.dsh-left-files__row[data-type='directory'] > .dsh-left-files__icon {
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .dsh-left-files__row[aria-level]:not([aria-level='1'])::before {
   content: '';
   position: absolute;
@@ -671,6 +675,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 .left-workspace-files > button { flex: none; }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
+.left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
 .left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
 .left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
@@ -719,6 +724,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
   const session = (0, import_react2.useMemo)(() => sessionId === void 0 ? void 0 : connect(sessionId), [sessionId, connect]);
   const shown = opened && wide;
+  const FolderIcon = shown ? import_dsh_client_ui_primitives2.IconFolderOpenRegular : import_dsh_client_ui_primitives2.IconFolderCloseRegular;
   (0, import_react2.useLayoutEffect)(() => {
     container.toggleAttribute("data-open", shown);
   }, [container, shown]);
@@ -731,7 +737,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
         {
           "aria-label": title,
           "aria-expanded": shown,
-          icon: shown ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderOpenRegular, { size: 16 }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderCloseRegular, { size: 16 }),
+          icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderIcon, { size: 16, className: "left-workspace-files__icon" }),
           onClick: () => {
             if (!wide) expand();
             setOpened(!shown);

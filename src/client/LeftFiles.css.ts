@@ -92,6 +92,10 @@ export const leftFilesCss = `
   margin-block-start: 1px;
 }
 
+.dsh-left-files__row[data-type='directory'] > .dsh-left-files__icon {
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .dsh-left-files__row[aria-level]:not([aria-level='1'])::before {
   content: '';
   position: absolute;

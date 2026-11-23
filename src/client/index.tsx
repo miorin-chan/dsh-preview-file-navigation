@@ -77,6 +77,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 .left-workspace-files > button { flex: none; }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
+.left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
 .left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
 .left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
@@ -132,6 +133,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const [openFailed, setOpenFailed] = useState(false)
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
   const shown = opened && wide
+  const FolderIcon = shown ? IconFolderOpenRegular : IconFolderCloseRegular
   useLayoutEffect(() => {
     container.toggleAttribute('data-open', shown)
   }, [container, shown])
@@ -141,7 +143,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
       <style>{sectionCss + leftFilesCss}</style>
       <Tooltip label={title} side="right" disabled={wide} portal>
         <Button aria-label={title} aria-expanded={shown}
-          icon={shown ? <IconFolderOpenRegular size={16} /> : <IconFolderCloseRegular size={16} />}
+          icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
           onClick={() => {
             if (!wide) expand()
             setOpened(!shown)
