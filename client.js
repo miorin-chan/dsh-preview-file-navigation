@@ -647,12 +647,34 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   flex-wrap: wrap;
 }
 .left-workspace-files { flex: none; min-width: 0; color: var(--dsw-alias-label-primary); }
+/* DSH rc.5 normally gives the workspace browser a full viewport below navigation.
+   Bound its grid row to the space left by navigation so the files stay visible. */
+[data-sidebar-scrollport]:has([data-sidebar-list-area] + .left-workspace-files) {
+  grid-template-rows: 8px max-content 2px minmax(112px, 1fr);
+}
+[data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files) {
+  max-block-size: 100%;
+}
+[data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files[data-open]) {
+  block-size: 100%;
+}
+[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open]) {
+  flex: 0 1 auto;
+  max-block-size: 50%;
+}
+[data-sidebar-list-area] + .left-workspace-files[data-open] {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-block-size: 0;
+}
+.left-workspace-files > button { flex: none; }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
 .left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
 .left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
-.left-workspace-files [data-left-files-pane] { height: min(36vh, 360px); min-height: 0; display: flex; flex-direction: column; }
+.left-workspace-files [data-left-files-pane] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
 .left-workspace-files [data-left-files-notice] { margin: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; overflow-wrap: anywhere; }
 `;
@@ -676,7 +698,16 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     }
     if (list === null) footer.append(container);
     else list.after(container);
-    return () => container.remove();
+    const keepFileWheel = (event) => {
+      if (event.target instanceof Element && event.target.closest(".dsh-left-files__scroll") !== null) {
+        event.stopPropagation();
+      }
+    };
+    container.addEventListener("wheel", keepFileWheel, { passive: true });
+    return () => {
+      container.removeEventListener("wheel", keepFileWheel);
+      container.remove();
+    };
   }, [container, wide]);
   const sessionId = useMountedSession((session2) => session2);
   const root = useSessions((snapshot) => sessionId === void 0 ? void 0 : snapshot.byId[sessionId]?.cwd);
@@ -688,6 +719,9 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
   const session = (0, import_react2.useMemo)(() => sessionId === void 0 ? void 0 : connect(sessionId), [sessionId, connect]);
   const shown = opened && wide;
+  (0, import_react2.useLayoutEffect)(() => {
+    container.toggleAttribute("data-open", shown);
+  }, [container, shown]);
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "left-workspace-files-anchor", ref: anchor }),
     (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
