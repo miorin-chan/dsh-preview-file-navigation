@@ -57,11 +57,12 @@ test('package patch leaves the native right sidebar plugin active', async () => 
 
 test('tree lines draw a native hairline for every ancestor level, through each ancestor icon centre', () => {
   // Regression: each row drew only its parent's guide, left of the icon, so ancestor lines broke across subtrees.
-  assert.doesNotMatch(leftFilesCss, /\.dsh-left-files__row[^{]*::before/)
-  const box = /\.dsh-left-files__guides \{[^}]*inset-inline-start: 24px;[^}]*inline-size: calc\(var\(--left-files-content-start\) \+ var\(--left-files-indent\) - 25px\);[^}]*overflow: hidden;/
-  const guide = /\.dsh-left-files__guide \{[^}]*inset-inline-start: calc\(var\(--left-files-level\) \* var\(--left-files-step\)\);[^}]*border-inline-start: 0\.5px solid var\(--dsw-alias-border-l3\);/
-  assert.match(leftFilesCss, box)
-  assert.match(leftFilesCss, guide)
+  const guides = leftFilesCss.match(/\.dsh-left-files__notice::before \{([^}]+)\}/)?.[1] ?? ''
+  assert.match(leftFilesCss, /\.dsh-left-files__row\[aria-level\]:not\(\[aria-level='1'\]\)::before,/)
+  assert.match(guides, /inset-inline-start: 24px;/)
+  assert.match(guides, /inline-size: max\(0px, calc\(var\(--left-files-content-start\) \+ var\(--left-files-indent\) - 25px\)\);/)
+  assert.match(guides, /background-image: repeating-linear-gradient\([\s\S]*var\(--dsw-alias-border-l3\) 0 0\.5px,\s*transparent 0\.5px var\(--left-files-step\)/)
+  assert.match(leftFilesCss, /:dir\(rtl\)::before \{\s*--left-files-guide-direction: to left;/)
   assert.match(leftFilesCss, /\.dsh-left-files__row \{\s*--left-files-content-start: 16px;/)
 })
 

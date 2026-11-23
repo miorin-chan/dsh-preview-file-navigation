@@ -177,23 +177,25 @@ export const leftFilesCss = `
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Indent guides, as specified in docs/README.md (界面设计). The first guide runs through the centre of a depth-0 icon
-   (16px content start plus half the 16px icon). The box stops 1px short of the line's own content,
-   so a capped indent clips deeper guides instead of drawing them through the icon or notice text. */
-.dsh-left-files__guides {
+/* One background draws every ancestor guide. It starts at the centre of the root icon
+   and ends 1px before this line's content, including when the indent is capped. */
+.dsh-left-files__row[aria-level]:not([aria-level='1'])::before,
+.dsh-left-files__notice::before {
+  content: '';
   position: absolute;
   inset-block: 0;
   inset-inline-start: 24px;
-  inline-size: calc(var(--left-files-content-start) + var(--left-files-indent) - 25px);
-  overflow: hidden;
+  inline-size: max(0px, calc(var(--left-files-content-start) + var(--left-files-indent) - 25px));
+  background-image: repeating-linear-gradient(
+    var(--left-files-guide-direction, to right),
+    var(--dsw-alias-border-l3) 0 0.5px,
+    transparent 0.5px var(--left-files-step)
+  );
   pointer-events: none;
 }
 
-.dsh-left-files__guide {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: calc(var(--left-files-level) * var(--left-files-step));
-  border-inline-start: 0.5px solid var(--dsw-alias-border-l3);
+:is(.dsh-left-files__row, .dsh-left-files__notice):dir(rtl)::before {
+  --left-files-guide-direction: to left;
 }
 
 .dsh-left-files__label {

@@ -82,18 +82,6 @@ function markedText(text: string, matches: Iterable<RegExpMatchArray>, offset = 
   return cursor === 0 ? text : [...parts, text.slice(cursor)]
 }
 
-/** Draw one guide per ancestor level, so the lines join across the flat list of tree lines. */
-function IndentGuides({ depth }: { readonly depth: number }) {
-  if (depth === 0) return null
-  return (
-    <span className="dsh-left-files__guides" aria-hidden="true">
-      {Array.from({ length: depth }, (_, level) => (
-        <span key={level} className="dsh-left-files__guide" style={{ '--left-files-level': level } as CSSProperties} />
-      ))}
-    </span>
-  )
-}
-
 function FileRow({ row, root, shown, expanded, query, matchPattern, tabIndex, onFocus, onClick }: {
   readonly row: Row
   readonly root: string
@@ -109,10 +97,12 @@ function FileRow({ row, root, shown, expanded, query, matchPattern, tabIndex, on
   const nameRef = useRef<HTMLSpanElement>(null)
   const marquee = useTitleMarquee(nameRef)
   useLayoutEffect(() => {
+    marquee.leave()
     if (shown && rowRef.current?.matches(':hover') && window.matchMedia('(any-hover: hover)').matches) {
       marquee.enter()
     }
-    return marquee.leave
+    // Reset reused titles above. Unmounting a row only cancels the pending frame.
+    return marquee.cancel
   }, [root, shown, marquee])
 
   const searching = query !== ''
@@ -143,7 +133,6 @@ function FileRow({ row, root, shown, expanded, query, matchPattern, tabIndex, on
       onPointerEnter={marquee.enter}
       onPointerLeave={marquee.leave}
     >
-      {!searching && <IndentGuides depth={row.depth} />}
       {row.type === 'directory'
         ? expanded
           ? <IconFolderOpenRegular size={16} className="dsh-left-files__icon" />
@@ -482,7 +471,6 @@ export function LeftFiles({ root, list, search, open, titleButton, wide, shown, 
   function renderNotice(status: NoticeKey, depth: number, retry: () => void) {
     return (
       <div className="dsh-left-files__notice" style={{ '--left-files-depth': depth } as CSSProperties}>
-        <IndentGuides depth={depth} />
         <span role={status === 'error' ? 'alert' : 'status'}>{t(status)}</span>
         {status === 'error' && (
           <Button size="sm" onClick={retry}>{t('retry')}</Button>

@@ -3,7 +3,7 @@
  * src/client/rows/Rows.tsx (useTitleMarquee, placeTitle, restTitle).
  * Copyright (c) 2026 DeepSeek. MIT license, see LICENSE.
  */
-import { useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import type { PointerEvent, RefObject } from 'react'
 
 const MIN_TITLE_REVEAL_PX = 8
@@ -19,8 +19,10 @@ function placeTitle(title: HTMLSpanElement, left: number, range: number): void {
 }
 
 function restTitle(title: HTMLSpanElement): void {
-  if (typeof title.scrollTo === 'function') title.scrollTo({ left: 0, behavior: 'instant' })
-  else title.scrollLeft = 0
+  if (title.dataset.scrolled !== undefined) {
+    if (typeof title.scrollTo === 'function') title.scrollTo({ left: 0, behavior: 'instant' })
+    else title.scrollLeft = 0
+  }
   delete title.dataset.scrolled
   delete title.dataset.clipped
 }
@@ -29,9 +31,16 @@ function restTitle(title: HTMLSpanElement): void {
 export function useTitleMarquee(title: RefObject<HTMLSpanElement>): {
   enter: (event?: PointerEvent) => void
   leave: () => void
+  cancel: () => void
 } {
-  const frame = useRef(0)
+  const frame = useRef<number | undefined>(undefined)
   const revealing = useRef(false)
+  const cancel = useCallback(() => {
+    revealing.current = false
+    if (frame.current === undefined) return
+    cancelAnimationFrame(frame.current)
+    frame.current = undefined
+  }, [])
   return useMemo(() => ({
     enter: (event?: PointerEvent): void => {
       if (event?.pointerType === 'touch' || title.current === null || revealing.current) return
@@ -43,21 +52,20 @@ export function useTitleMarquee(title: RefObject<HTMLSpanElement>): {
         placeTitle(element, range, range)
         return
       }
-      cancelAnimationFrame(frame.current)
       let previous: number | undefined
       let position = 0
       const step = (now: DOMHighResTimeStamp): void => {
         position += previous === undefined ? 0 : (now - previous) * TITLE_MARQUEE_PX_PER_MS
         previous = now
         placeTitle(element, Math.min(position, range), range)
-        if (position < range) frame.current = requestAnimationFrame(step)
+        frame.current = position < range ? requestAnimationFrame(step) : undefined
       }
       frame.current = requestAnimationFrame(step)
     },
     leave: (): void => {
-      revealing.current = false
-      cancelAnimationFrame(frame.current)
+      cancel()
       if (title.current !== null) restTitle(title.current)
     },
-  }), [title])
+    cancel,
+  }), [cancel, title])
 }
