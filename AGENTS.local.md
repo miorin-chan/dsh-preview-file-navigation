@@ -8,6 +8,9 @@ This file supplements [AGENTS.md](AGENTS.md) with rules for the Workspace files 
   Keep development and compatibility notes in the [docs index](docs/README.md).
 - Keep Plugin Manager copy in `locale/*.json` and runtime copy in [the client dictionary](src/client/locale.ts).
   Update all eight locales (`en`, `zh`, `ja`, `de`, `es`, `fr`, `pt`, and `ru`).
+- Keep the plugin detail page short and easy to scan.
+  Use plain language and show only what the user needs to know or do right away.
+  Reveal details as needed.
 - Format edited Markdown with the [standalone reflow script](docs/scripts/reflow).
 
 ## Implementation and verification
