@@ -17,6 +17,9 @@ This file supplements [AGENTS.md](AGENTS.md) with rules for the Workspace files 
 
 - Place the file browser below the session list in the left sidebar.
   Use the current session’s working directory and send file opens through the native right sidebar preview.
-- Write source in TypeScript and regenerate the distributed JavaScript with [the build script](scripts/build.mjs).
+- Write source in TypeScript and regenerate the distributed JavaScript with [the build script](scripts/build.mts).
 - The bundle targets exactly DeepSeek Harness 0.2.2-rc.5.
   Follow the [build and verification instructions](docs/README.md) when changing the source or runtime version.
+
+`npm run build:tools` 从 `scripts/` 下的 `.mts` 生成同路径 `.mjs`，Git 跟踪 TypeScript 源码。
+Node.js 22.18 或更新版本直接运行 `.test.mts`。
