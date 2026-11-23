@@ -1,6 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, IconFolderCloseRegular, IconFolderOpenRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, IconChevronRightOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, Tooltip,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/client'
@@ -74,13 +76,44 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   flex-direction: column;
   min-block-size: 0;
 }
-.left-workspace-files > button { flex: none; }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
-.left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
-.left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
-.left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
-.left-workspace-files[data-rail] > button { width: 36px; justify-content: center; padding: 0; }
+.left-workspace-files__trigger { flex: none; }
+.left-workspace-files:not([data-rail]) > .left-workspace-files__trigger {
+  inline-size: calc(100% - 2 * var(--dsh-sidebar-paint-inset, 3px));
+  block-size: 32px;
+  margin-inline: var(--dsh-sidebar-paint-inset, 3px);
+  padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
+  gap: var(--dsh-sidebar-label-gap, 6px);
+  justify-content: flex-start;
+  text-align: start;
+}
+.left-workspace-files[data-rail] > .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
+.left-workspace-files > .left-workspace-files__trigger[aria-expanded='true'] {
+  background-color: var(--dsw-alias-interactive-bg-active);
+}
+.left-workspace-files__trigger:focus-visible {
+  outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+.left-workspace-files__icon, .left-workspace-files__chevron { color: var(--dsw-alias-label-tertiary); }
+.left-workspace-files__title {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  line-height: 20px;
+}
+.left-workspace-files__chevron {
+  flex: none;
+  transition: transform 150ms var(--ds-ease-in-out, ease-in-out);
+}
+.left-workspace-files__trigger:dir(rtl) .left-workspace-files__chevron { transform: rotate(180deg); }
+.left-workspace-files__trigger[aria-expanded='true'] .left-workspace-files__chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .left-workspace-files__chevron { transition: none; }
+}
 .left-workspace-files [data-left-files-pane] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
 .left-workspace-files [data-left-files-notice] { margin: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; overflow-wrap: anywhere; }
@@ -131,6 +164,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const [opened, setOpened] = useState(false)
   const [activated, setActivated] = useState(false)
   const [openFailed, setOpenFailed] = useState(false)
+  const paneId = useId()
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
   const shown = opened && wide
   const FolderIcon = shown ? IconFolderOpenRegular : IconFolderCloseRegular
@@ -141,18 +175,26 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     <div className="left-workspace-files-anchor" ref={anchor} />
     {createPortal(<>
       <style>{sectionCss + leftFilesCss}</style>
-      <Tooltip label={title} side="right" disabled={wide} portal>
-        <Button aria-label={title} aria-expanded={shown}
+      <Tooltip label={title} side="right" onlyWhenClipped={wide} portal>
+        <Button
+          className="left-workspace-files__trigger"
+          aria-label={title}
+          aria-expanded={shown}
+          aria-controls={activated ? paneId : undefined}
           icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
           onClick={() => {
             if (!wide) expand()
             setOpened(!shown)
             setActivated(true)
-          }}>
-          {wide && <span className="left-workspace-files__title" title={title}>{title}</span>}
+          }}
+        >
+          {wide && <>
+            <span className="left-workspace-files__title">{title}</span>
+            <IconChevronRightOutlineRegular size={12} className="left-workspace-files__chevron" />
+          </>}
         </Button>
       </Tooltip>
-      {activated && <div data-left-files-pane="" hidden={!shown}>
+      {activated && <div id={paneId} data-left-files-pane="" hidden={!shown}>
         {root === undefined || session === undefined
           ? <p data-left-files-notice="">{t('noSession')}</p>
           : <LeftFiles root={root} list={session.list} search={session.search} t={t} open={path => setOpenFailed(!session.open(path))} />}
