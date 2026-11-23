@@ -674,18 +674,19 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files__trigger { flex: none; }
-.left-workspace-files:not([data-rail]) > .left-workspace-files__trigger {
-  inline-size: calc(100% - 2 * var(--dsh-sidebar-paint-inset, 3px));
+.left-workspace-files:not([data-rail]) > button.left-workspace-files__trigger {
+  inline-size: 100%;
   block-size: 32px;
-  margin-inline: var(--dsh-sidebar-paint-inset, 3px);
+  border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent;
   padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
   gap: var(--dsh-sidebar-label-gap, 6px);
   justify-content: flex-start;
   text-align: start;
+  background-clip: padding-box;
 }
 .left-workspace-files[data-rail] > .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
-.left-workspace-files > .left-workspace-files__trigger[aria-expanded='true'] {
-  background-color: var(--dsw-alias-interactive-bg-active);
+.left-workspace-files__trigger[aria-expanded='true']:not(:active) {
+  background-color: var(--dsw-alias-interactive-bg-hover);
 }
 .left-workspace-files__trigger:focus-visible {
   outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
@@ -716,6 +717,8 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 `;
 function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, connect, expand, t }) {
   const anchor = (0, import_react2.useRef)(null);
+  const trigger = (0, import_react2.useRef)(null);
+  const restoreTriggerFocus = (0, import_react2.useRef)(false);
   const [container] = (0, import_react2.useState)(() => {
     const section = document.createElement("section");
     section.className = "left-workspace-files";
@@ -734,6 +737,10 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     }
     if (list === null) footer.append(container);
     else list.after(container);
+    if (restoreTriggerFocus.current) {
+      restoreTriggerFocus.current = false;
+      trigger.current?.focus({ preventScroll: true });
+    }
     const keepFileWheel = (event) => {
       if (event.target instanceof Element && event.target.closest(".dsh-left-files__scroll") !== null) {
         event.stopPropagation();
@@ -741,6 +748,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     };
     container.addEventListener("wheel", keepFileWheel, { passive: true });
     return () => {
+      restoreTriggerFocus.current = trigger.current !== null && document.activeElement === trigger.current;
       container.removeEventListener("wheel", keepFileWheel);
       container.remove();
     };
@@ -749,7 +757,9 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const root = useSessions((snapshot) => sessionId === void 0 ? void 0 : snapshot.byId[sessionId]?.cwd);
   const workspaceTitle = useWorkspaces((snapshot) => sessionId === void 0 ? void 0 : snapshot.items.find((workspace) => workspace.sessionIds.includes(sessionId))?.title ?? snapshot.items.find((workspace) => workspace.path === root)?.title);
   const directoryName = root?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
-  const title = workspaceTitle || directoryName || root || t("title");
+  const filesLabel = t("title");
+  const title = workspaceTitle || directoryName || root || filesLabel;
+  const triggerLabel = title === filesLabel ? title : `${title} \xB7 ${filesLabel}`;
   const [opened, setOpened] = (0, import_react2.useState)(false);
   const [activated, setActivated] = (0, import_react2.useState)(false);
   const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
@@ -764,11 +774,12 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "left-workspace-files-anchor", ref: anchor }),
     (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: sectionCss + leftFilesCss }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: title, side: "right", onlyWhenClipped: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: wide ? title : triggerLabel, side: "right", onlyWhenClipped: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
         import_dsh_client_ui_primitives2.Button,
         {
+          ref: trigger,
           className: "left-workspace-files__trigger",
-          "aria-label": title,
+          "aria-label": triggerLabel,
           "aria-expanded": shown,
           "aria-controls": activated ? paneId : void 0,
           icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderIcon, { size: 16, className: "left-workspace-files__icon" }),

@@ -78,18 +78,19 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files__trigger { flex: none; }
-.left-workspace-files:not([data-rail]) > .left-workspace-files__trigger {
-  inline-size: calc(100% - 2 * var(--dsh-sidebar-paint-inset, 3px));
+.left-workspace-files:not([data-rail]) > button.left-workspace-files__trigger {
+  inline-size: 100%;
   block-size: 32px;
-  margin-inline: var(--dsh-sidebar-paint-inset, 3px);
+  border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent;
   padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
   gap: var(--dsh-sidebar-label-gap, 6px);
   justify-content: flex-start;
   text-align: start;
+  background-clip: padding-box;
 }
 .left-workspace-files[data-rail] > .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
-.left-workspace-files > .left-workspace-files__trigger[aria-expanded='true'] {
-  background-color: var(--dsw-alias-interactive-bg-active);
+.left-workspace-files__trigger[aria-expanded='true']:not(:active) {
+  background-color: var(--dsw-alias-interactive-bg-hover);
 }
 .left-workspace-files__trigger:focus-visible {
   outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
@@ -121,6 +122,8 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 
 function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, connect, expand, t }: FooterProps) {
   const anchor = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const restoreTriggerFocus = useRef(false)
   const [container] = useState(() => {
     const section = document.createElement('section')
     section.className = 'left-workspace-files'
@@ -140,6 +143,10 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     }
     if (list === null) footer.append(container)
     else list.after(container)
+    if (restoreTriggerFocus.current) {
+      restoreTriggerFocus.current = false
+      trigger.current?.focus({ preventScroll: true })
+    }
     // Let the file scroller use the browser's default wheel behavior. The
     // enclosing DSH viewport otherwise sends its wheel events to the session list.
     const keepFileWheel = (event: WheelEvent): void => {
@@ -149,6 +156,8 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     }
     container.addEventListener('wheel', keepFileWheel, { passive: true })
     return () => {
+      // Moving the section between the footer and session list drops focus.
+      restoreTriggerFocus.current = trigger.current !== null && document.activeElement === trigger.current
       container.removeEventListener('wheel', keepFileWheel)
       container.remove()
     }
@@ -160,7 +169,9 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     : snapshot.items.find(workspace => workspace.sessionIds.includes(sessionId))?.title
       ?? snapshot.items.find(workspace => workspace.path === root)?.title)
   const directoryName = root?.replace(/[\\/]+$/, '').split(/[\\/]/).pop()
-  const title = workspaceTitle || directoryName || root || t('title')
+  const filesLabel = t('title')
+  const title = workspaceTitle || directoryName || root || filesLabel
+  const triggerLabel = title === filesLabel ? title : `${title} · ${filesLabel}`
   const [opened, setOpened] = useState(false)
   const [activated, setActivated] = useState(false)
   const [openFailed, setOpenFailed] = useState(false)
@@ -175,10 +186,11 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     <div className="left-workspace-files-anchor" ref={anchor} />
     {createPortal(<>
       <style>{sectionCss + leftFilesCss}</style>
-      <Tooltip label={title} side="right" onlyWhenClipped={wide} portal>
+      <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
         <Button
+          ref={trigger}
           className="left-workspace-files__trigger"
-          aria-label={title}
+          aria-label={triggerLabel}
           aria-expanded={shown}
           aria-controls={activated ? paneId : undefined}
           icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
