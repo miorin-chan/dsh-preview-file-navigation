@@ -55,6 +55,16 @@ test('package patch leaves the native right sidebar plugin active', async () => 
   assert.equal(typeof (await import('../index.js')).apply, 'function')
 })
 
+test('tree lines draw a native hairline for every ancestor level, through each ancestor icon centre', () => {
+  // Regression: each row drew only its parent's guide, left of the icon, so ancestor lines broke across subtrees.
+  assert.doesNotMatch(leftFilesCss, /\.dsh-left-files__row[^{]*::before/)
+  const box = /\.dsh-left-files__guides \{[^}]*inset-inline-start: 24px;[^}]*inline-size: calc\(var\(--left-files-content-start\) \+ var\(--left-files-indent\) - 25px\);[^}]*overflow: hidden;/
+  const guide = /\.dsh-left-files__guide \{[^}]*inset-inline-start: calc\(var\(--left-files-level\) \* var\(--left-files-step\)\);[^}]*border-inline-start: 0\.5px solid var\(--dsw-alias-border-l3\);/
+  assert.match(leftFilesCss, box)
+  assert.match(leftFilesCss, guide)
+  assert.match(leftFilesCss, /\.dsh-left-files__row \{\s*--left-files-content-start: 16px;/)
+})
+
 test('hover-capable file rows drop the ellipsis so the marquee can reveal the suffix', () => {
   const hoverClip = /@media \(hover: hover\)\s*\{\s*\.dsh-left-files__row:hover \.dsh-left-files__name\s*\{\s*text-overflow: clip;/
   assert.ok(hoverClip.test(leftFilesCss))

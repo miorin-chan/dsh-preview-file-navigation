@@ -146,19 +146,20 @@ export const leftFilesCss = `
 .dsh-left-files__notice {
   --left-files-step: clamp(10px, calc(3.25px + 3.75cqi), 13px);
   --left-files-indent: min(calc(var(--left-files-depth, 0) * var(--left-files-step)), 30cqi);
-  padding-inline-start: calc(6px + var(--left-files-indent));
+  --left-files-content-start: 6px;
+  position: relative;
+  padding-inline-start: calc(var(--left-files-content-start) + var(--left-files-indent));
   padding-inline-end: 6px;
 }
 
 .dsh-left-files__row {
+  --left-files-content-start: 16px;
   display: flex;
   align-items: flex-start;
   inline-size: 100%;
   min-block-size: 24px;
   padding-block: 4px;
-  padding-inline-start: calc(16px + var(--left-files-indent));
   text-align: start;
-  position: relative;
 }
 
 .dsh-left-files__row[aria-disabled='true'] {
@@ -176,13 +177,23 @@ export const leftFilesCss = `
   color: var(--dsw-alias-label-tertiary);
 }
 
-.dsh-left-files__row[aria-level]:not([aria-level='1'])::before {
-  content: '';
+/* Indent guides, as specified in docs/README.md (界面设计). The first guide runs through the centre of a depth-0 icon
+   (16px content start plus half the 16px icon). The box stops 1px short of the line's own content,
+   so a capped indent clips deeper guides instead of drawing them through the icon or notice text. */
+.dsh-left-files__guides {
   position: absolute;
   inset-block: 0;
-  inset-inline-start: calc(12px + var(--left-files-indent) - var(--left-files-step));
-  border-inline-start: 1px solid var(--dsw-alias-border-l2);
+  inset-inline-start: 24px;
+  inline-size: calc(var(--left-files-content-start) + var(--left-files-indent) - 25px);
+  overflow: hidden;
   pointer-events: none;
+}
+
+.dsh-left-files__guide {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--left-files-level) * var(--left-files-step));
+  border-inline-start: 0.5px solid var(--dsw-alias-border-l3);
 }
 
 .dsh-left-files__label {
