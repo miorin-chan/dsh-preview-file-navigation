@@ -87,7 +87,9 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
    .sectionHeader and .sectionLabel in src/client/rows/WorkspaceBrowser.module.css, and the
    arrow follows .arrow and .chevron in src/client/rows/Rows.module.css, both from
    @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. The arrow box matches the native
-   Sessions header toggle of dsh-workspace-list-toggle. */
+   Sessions header toggle of dsh-workspace-list-toggle. Label and arrow form one
+   disclosure target, so hover only brightens their color, as .row does in
+   src/DisclosureRow.module.css of @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5. */
 .left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: 36px; }
 .left-workspace-files:not([data-rail]) .left-workspace-files__trigger {
   box-sizing: border-box;
@@ -107,6 +109,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   font: inherit;
   text-align: start;
   cursor: pointer;
+  transition: color 100ms ease;
 }
 .left-workspace-files__title {
   flex: 0 1 auto;
@@ -122,20 +125,19 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   place-items: center;
   inline-size: 22px;
   block-size: 24px;
-  border-radius: 6px;
   color: var(--dsw-alias-label-caption);
+  transition: color 100ms ease;
 }
 .left-workspace-files__arrow > svg { transition: transform 150ms var(--ds-ease-in-out, ease-in-out); }
 .left-workspace-files__trigger:dir(rtl) .left-workspace-files__arrow > svg { transform: rotate(180deg); }
 .left-workspace-files__trigger[aria-expanded='true'] .left-workspace-files__arrow > svg { transform: rotate(90deg); }
 @media (hover: hover) {
-  .left-workspace-files:not([data-rail]) .left-workspace-files__trigger:hover { color: var(--dsw-alias-label-secondary); }
-  .left-workspace-files__trigger:hover .left-workspace-files__arrow {
-    background: var(--dsw-alias-interactive-bg-hover);
-    color: var(--dsw-alias-label-secondary);
-  }
+  .left-workspace-files:not([data-rail]) .left-workspace-files__trigger:hover,
+  .left-workspace-files__trigger:hover .left-workspace-files__arrow { color: var(--dsw-alias-label-secondary); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .left-workspace-files:not([data-rail]) .left-workspace-files__trigger,
+  .left-workspace-files__arrow,
   .left-workspace-files__arrow > svg { transition: none; }
 }
 .left-workspace-files [data-left-files-pane] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
