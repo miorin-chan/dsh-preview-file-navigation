@@ -1,14 +1,18 @@
 /** Workspace file browsing and search for a height-bounded sidebar. */
 import { useCallback, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
-import { Button, FileTypeIcon, IconCloseOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular, IconSearchOutlineRegular, Input, Tooltip, classifyFileType } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Button, FileTypeIcon, IconCloseFillRegular, IconFolderCloseRegular, IconFolderOpenRegular,
+  IconSearchOutlineRegular, Tooltip, classifyFileType,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 
 type EntryType = 'directory' | 'file' | 'other'
 type DirectoryEntry = { readonly name: string; readonly type: EntryType }
 type SearchEntry = { readonly path: string; readonly type: EntryType }
-type TranslationKey = 'search' | 'empty' | 'loading' | 'error' | 'retry' | 'clear'
+type NoticeKey = 'empty' | 'loading' | 'error'
+type TranslationKey = NoticeKey | 'search' | 'retry' | 'closeSearch' | 'openFailed'
 
-/** Data, actions, and localized labels supplied by the sidebar owner. */
+/** Data, actions, and controls supplied by the sidebar owner. */
 export interface LeftFilesProps {
   /** Absolute workspace directory. The root identifies its state within this mount. */
   readonly root: string
@@ -16,8 +20,14 @@ export interface LeftFilesProps {
   readonly list: (path: string, signal: AbortSignal) => Promise<readonly DirectoryEntry[]>
   /** Return workspace-relative paths with `/` separators in display order. */
   readonly search: (query: string, signal: AbortSignal) => Promise<readonly SearchEntry[]>
-  /** Open a file by its workspace-relative path with `/` separators. */
-  readonly open: (relativePath: string) => void
+  /** Open a workspace-relative file path and report whether a preview was available. */
+  readonly open: (relativePath: string) => boolean
+  readonly titleButton: ReactNode
+  readonly wide: boolean
+  readonly shown: boolean
+  readonly activated: boolean
+  readonly paneId: string
+  readonly showFiles: () => void
   /** Provide the labels for the current locale. */
   readonly t: (key: TranslationKey) => string
 }
@@ -26,9 +36,10 @@ type Result<T> = { readonly kind: 'ready'; readonly entries: readonly T[] } | { 
 type View = 'browse' | 'search'
 type Row = SearchEntry & { readonly name: string; readonly depth: number }
 type BrowseLine = { readonly kind: 'row'; readonly row: Row }
-  | { readonly kind: 'status'; readonly path: string; readonly depth: number; readonly status: TranslationKey }
+  | { readonly kind: 'status'; readonly path: string; readonly depth: number; readonly status: NoticeKey }
 
 type Workspace = {
+  readonly searchOpen: boolean
   readonly query: string
   readonly expanded: ReadonlySet<string>
   readonly listings: ReadonlyMap<string, Result<DirectoryEntry>>
@@ -36,8 +47,12 @@ type Workspace = {
   readonly active: Readonly<Partial<Record<View, string | undefined>>>
 }
 
-const initialWorkspace: Workspace = { query: '', expanded: new Set(), listings: new Map(), active: {} }
+const initialWorkspace: Workspace = { searchOpen: false, query: '', expanded: new Set(), listings: new Map(), active: {} }
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
+
+function endSearch(workspace: Workspace): Workspace {
+  return { ...workspace, searchOpen: false, query: '', matches: undefined, active: { browse: workspace.active.browse } }
+}
 
 function absoluteDirectory(root: string, relative: string): string {
   if (relative === '') return root
@@ -109,13 +124,15 @@ function LoadEntries<T>({ target, load, settle }: {
 }
 
 /**
- * Draw the search field and workspace files. The caller supplies the header and styles.
+ * Draw the header search and the file navigator. The sidebar supplies the title button.
  * @param props - Workspace and adapter callbacks for this sidebar.
- * @returns The file navigator.
+ * @returns The file navigator and its header.
  */
-export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
+export function LeftFiles({ root, list, search, open, titleButton, wide, shown, activated, paneId, showFiles, t }: LeftFilesProps) {
   const [workspaces, setWorkspaces] = useState<ReadonlyMap<string, Workspace>>(() => new Map())
+  const [openFailed, setOpenFailed] = useState(false)
   const workspace = workspaces.get(root) ?? initialWorkspace
+  const searchVisible = shown && workspace.searchOpen
   const query = workspace.query.trim()
   const matchPattern = useMemo(() => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu'), [query])
   const searching = query !== ''
@@ -134,13 +151,17 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
   const activePath = workspace.active[view]
   const tabPath = rows.find(row => row.path === activePath)?.path ?? rows[0]?.path
 
+  const searchBox = useRef<HTMLDivElement>(null)
+  const searchButton = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const searchFocus = useRef<'input' | 'button' | null>(null)
+  const wasWide = useRef(wide)
   const scrollerRef = useRef<HTMLDivElement>(null)
   const scrollOffsets = useRef(new Map<string, Record<View, number>>())
   const displayed = useRef<{ root: string; query: string } | null>(null)
   const focusWithin = useRef(false)
   const rowFocused = useRef(false)
-  const pendingFocus = useRef<{ root: string; path: string; reveal: boolean } | null>(null)
+  const pendingFocus = useRef<{ root: string; path: string } | null>(null)
 
   const update = useCallback((change: (previous: Workspace) => Workspace) => {
     setWorkspaces(previous => {
@@ -150,6 +171,30 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       return new Map(previous).set(root, next)
     })
   }, [root])
+
+  useEffect(() => {
+    const enteringWide = wide && !wasWide.current
+    wasWide.current = wide
+    const request = searchFocus.current
+    // The sidebar has finished moving the section before the input takes focus.
+    const target = searchVisible && (enteringWide || request === 'input') ? inputRef.current
+      : !searchVisible && request === 'button' ? searchButton.current
+        : null
+    if (target === null) return
+    searchFocus.current = null
+    target.focus({ preventScroll: true })
+  }, [searchVisible, wide])
+
+  useEffect(() => {
+    if (!searchVisible) return
+    const dismiss = (event: MouseEvent): void => {
+      if (!(event.target instanceof Node) || searchBox.current?.contains(event.target)) return
+      inputRef.current?.blur()
+      if (query === '') update(endSearch)
+    }
+    document.addEventListener('click', dismiss)
+    return () => document.removeEventListener('click', dismiss)
+  }, [query, searchVisible, update])
 
   const loadDirectory = useCallback((path: string, signal: AbortSignal) => list(absoluteDirectory(root, path), signal), [root, list])
 
@@ -189,8 +234,11 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
   // Apply the saved offset after the new rows commit, before the viewport paints.
   useLayoutEffect(() => {
     const scroller = scrollerRef.current
+    if (!scroller || !shown) {
+      displayed.current = null
+      return
+    }
     const previous = displayed.current
-    if (!scroller) return
     if (previous?.root !== root || previous.query !== query) {
       displayed.current = { root, query }
       scroller.scrollTop = scrollOffsets.current.get(root)?.[view] ?? 0
@@ -202,13 +250,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       }
     }
     const target = pendingFocus.current
-    if (target?.root === root && focusWithin.current) {
-      if (focusRow(target.path, target.reveal)) pendingFocus.current = null
-      else if (!target.reveal) {
-        pendingFocus.current = null
-        scroller.focus({ preventScroll: true })
-      }
-    }
+    if (target?.root === root && focusWithin.current && focusRow(target.path)) pendingFocus.current = null
   })
 
   function rememberScroll(scroller: HTMLDivElement): void {
@@ -226,17 +268,23 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
   function changeQuery(value: string): void {
     const target = value.trim()
     if (target !== query) resetSearchScroll()
-    pendingFocus.current = searching && target === '' && workspace.active.browse !== undefined
-      ? { root, path: workspace.active.browse, reveal: false }
-      : null
+    pendingFocus.current = null
     update(previous => target === previous.query.trim()
       ? { ...previous, query: value }
-      : { ...previous, query: value, matches: undefined, active: { browse: previous.active.browse ?? undefined } })
+      : { ...previous, query: value, matches: undefined, active: { browse: previous.active.browse } })
   }
 
-  function clearSearch(): void {
-    inputRef.current?.focus({ preventScroll: true })
-    changeQuery('')
+  function startSearch(): void {
+    searchFocus.current = 'input'
+    update(previous => ({ ...previous, searchOpen: true }))
+    showFiles()
+  }
+
+  function closeSearch(): void {
+    resetSearchScroll()
+    pendingFocus.current = null
+    searchFocus.current = 'button'
+    update(endSearch)
   }
 
   function toggle(path: string): void {
@@ -249,7 +297,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
 
   function activate(row: Row): void {
     if (row.type === 'file') {
-      open(row.path)
+      setOpenFailed(!open(row.path))
       return
     }
     if (row.type !== 'directory') return
@@ -257,13 +305,13 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       toggle(row.path)
       return
     }
-    pendingFocus.current = { root, path: row.path, reveal: true }
+    pendingFocus.current = { root, path: row.path }
     resetSearchScroll()
     scrollerRef.current?.focus({ preventScroll: true })
     update(previous => {
       const expanded = new Set(previous.expanded)
       for (let path = row.path; path !== ''; path = parentOf(path)) expanded.add(path)
-      return { ...previous, query: '', matches: undefined, expanded, active: { browse: row.path } }
+      return { ...endSearch(previous), expanded, active: { browse: row.path } }
     })
   }
 
@@ -273,10 +321,10 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
     const atInput = target === inputRef.current
     const atScroller = target === scrollerRef.current
 
-    if (key === 'Escape' && workspace.query !== '') {
+    if (key === 'Escape' && searchVisible) {
       event.preventDefault()
       event.stopPropagation()
-      clearSearch()
+      closeSearch()
       return
     }
     const targetPath = target instanceof HTMLButtonElement ? target.dataset.path : undefined
@@ -309,7 +357,8 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
       } else if (!atInput && key === 'ArrowUp') {
         event.preventDefault()
         pendingFocus.current = null
-        inputRef.current?.focus({ preventScroll: true })
+        const control = inputRef.current ?? searchButton.current
+        control?.focus({ preventScroll: true })
       }
       return
     }
@@ -376,7 +425,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
     )
   }
 
-  function renderNotice(status: TranslationKey, depth: number, retry: () => void) {
+  function renderNotice(status: NoticeKey, depth: number, retry: () => void) {
     return (
       <div className="dsh-left-files__notice" style={{ '--left-files-depth': depth } as CSSProperties}>
         <span role={status === 'error' ? 'alert' : 'status'}>{t(status)}</span>
@@ -389,7 +438,7 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
 
   return (
     <div
-      className="dsh-left-files"
+      className="left-workspace-files__navigator"
       onKeyDown={onKeyDown}
       onFocusCapture={event => {
         focusWithin.current = true
@@ -402,62 +451,86 @@ export function LeftFiles({ root, list, search, open, t }: LeftFilesProps) {
         }
       }}
     >
-      <div className="dsh-left-files__search">
-        <Input
-          ref={inputRef}
-          className="dsh-left-files__field"
-          icon={<IconSearchOutlineRegular size={14} />}
-          type="search"
-          autoComplete="off"
-          aria-label={t('search')}
-          placeholder={t('search')}
-          value={workspace.query}
-          onChange={event => changeQuery(event.currentTarget.value)}
-        />
-        {workspace.query !== '' && (
-          <Tooltip label={t('clear')} side="top" portal>
-            <Button size="sm" aria-label={t('clear')} onClick={clearSearch} icon={<IconCloseOutlineRegular size={14} />} />
+      <div className="left-workspace-files__header" data-search-open={searchVisible || undefined}>
+        <div className="left-workspace-files__title-slot" {...{ inert: searchVisible ? '' : undefined }}>
+          {titleButton}
+        </div>
+        <div className="left-workspace-files__search" ref={searchBox} role={searchVisible ? 'search' : undefined}>
+          <Tooltip label={t('search')} delayMs={500} side={wide ? 'bottom' : 'right'} disabled={searchVisible} portal>
+            <button
+              ref={searchButton}
+              type="button"
+              className="left-workspace-files__search-open"
+              aria-label={t('search')}
+              aria-expanded={searchVisible}
+              tabIndex={searchVisible ? -1 : 0}
+              onClick={() => {
+                if (searchVisible) inputRef.current?.focus({ preventScroll: true })
+                else startSearch()
+              }}
+            >
+              <IconSearchOutlineRegular size={searchVisible ? 11 : wide ? 14 : 18} />
+            </button>
           </Tooltip>
-        )}
+          <input
+            ref={inputRef}
+            className="left-workspace-files__search-input"
+            type="search"
+            autoComplete="off"
+            aria-label={t('search')}
+            placeholder={t('search')}
+            value={workspace.query}
+            disabled={!searchVisible}
+            onChange={event => changeQuery(event.currentTarget.value)}
+          />
+          <button type="button" className="left-workspace-files__search-close" aria-label={t('closeSearch')} disabled={!searchVisible} onClick={closeSearch}>
+            <IconCloseFillRegular size={16} />
+          </button>
+        </div>
       </div>
-      <div
-        className="dsh-left-files__scroll"
-        ref={scrollerRef}
-        tabIndex={-1}
-        onScroll={event => rememberScroll(event.currentTarget)}
-      >
-        {searching ? (
-          <div role="group" aria-label={t('search')}>
-            {workspace.matches === undefined && <LoadEntries key={query} target={query} load={search} settle={settleSearch} />}
-            {rows.map(renderRow)}
-            {rows.length === 0 && renderNotice(
-              workspace.matches === undefined ? 'loading' : workspace.matches.kind === 'error' ? 'error' : 'empty',
-              0,
-              () => { inputRef.current?.focus({ preventScroll: true }); update(previous => ({ ...previous, matches: undefined })) },
+      {activated && (
+        <div id={paneId} className="dsh-left-files" data-left-files-pane="" hidden={!shown}>
+          <div
+            className="dsh-left-files__scroll"
+            ref={scrollerRef}
+            tabIndex={-1}
+            onScroll={event => { if (shown) rememberScroll(event.currentTarget) }}
+          >
+            {searching ? (
+              <div role="group" aria-label={t('search')}>
+                {workspace.matches === undefined && <LoadEntries key={query} target={query} load={search} settle={settleSearch} />}
+                {rows.map(renderRow)}
+                {rows.length === 0 && renderNotice(
+                  workspace.matches === undefined ? 'loading' : workspace.matches.kind === 'error' ? 'error' : 'empty',
+                  0,
+                  () => { inputRef.current?.focus({ preventScroll: true }); update(previous => ({ ...previous, matches: undefined })) },
+                )}
+              </div>
+            ) : (
+              <div role="tree" aria-label={root}>
+                {lines.map(line => {
+                  if (line.kind === 'row') return renderRow(line.row)
+                  const { path, depth, status } = line
+                  return (
+                    <div role="none" key={`status:${path}`}>
+                      {status === 'loading' && <LoadEntries key={root} target={path} load={loadDirectory} settle={settleDirectory} />}
+                      {renderNotice(status, depth, () => {
+                        if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true })
+                        update(previous => {
+                          const listings = new Map(previous.listings)
+                          listings.delete(path)
+                          return { ...previous, listings }
+                        })
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
-        ) : (
-          <div role="tree" aria-label={root}>
-            {lines.map(line => {
-              if (line.kind === 'row') return renderRow(line.row)
-              const { path, depth, status } = line
-              return (
-                <div role="none" key={`status:${path}`}>
-                  {status === 'loading' && <LoadEntries key={root} target={path} load={loadDirectory} settle={settleDirectory} />}
-                  {renderNotice(status, depth, () => {
-                    if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true })
-                    update(previous => {
-                      const listings = new Map(previous.listings)
-                      listings.delete(path)
-                      return { ...previous, listings }
-                    })
-                  })}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+          {openFailed && shown && <p data-left-files-notice="" role="status">{t('openFailed')}</p>}
+        </div>
+      )}
     </div>
   )
 }

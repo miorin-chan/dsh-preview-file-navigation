@@ -42,8 +42,11 @@ var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primi
 var import_react = require("react");
 var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 var import_jsx_runtime = require("react/jsx-runtime");
-var initialWorkspace = { query: "", expanded: /* @__PURE__ */ new Set(), listings: /* @__PURE__ */ new Map(), active: {} };
+var initialWorkspace = { searchOpen: false, query: "", expanded: /* @__PURE__ */ new Set(), listings: /* @__PURE__ */ new Map(), active: {} };
 var byName = new Intl.Collator(void 0, { numeric: true, sensitivity: "base" });
+function endSearch(workspace) {
+  return { ...workspace, searchOpen: false, query: "", matches: void 0, active: { browse: workspace.active.browse } };
+}
 function absoluteDirectory(root, relative) {
   if (relative === "") return root;
   const separator = /^(?:[a-z]:\\|\\\\)/i.test(root) ? "\\" : "/";
@@ -102,9 +105,11 @@ function LoadEntries({ target, load, settle }) {
   }, [target, load, settle]);
   return null;
 }
-function LeftFiles({ root, list, search, open, t }) {
+function LeftFiles({ root, list, search, open, titleButton, wide, shown, activated, paneId, showFiles, t }) {
   const [workspaces, setWorkspaces] = (0, import_react.useState)(() => /* @__PURE__ */ new Map());
+  const [openFailed, setOpenFailed] = (0, import_react.useState)(false);
   const workspace = workspaces.get(root) ?? initialWorkspace;
+  const searchVisible = shown && workspace.searchOpen;
   const query = workspace.query.trim();
   const matchPattern = (0, import_react.useMemo)(() => new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu"), [query]);
   const searching = query !== "";
@@ -122,7 +127,11 @@ function LeftFiles({ root, list, search, open, t }) {
   }, [lines, matches, searching]);
   const activePath = workspace.active[view];
   const tabPath = rows.find((row) => row.path === activePath)?.path ?? rows[0]?.path;
+  const searchBox = (0, import_react.useRef)(null);
+  const searchButton = (0, import_react.useRef)(null);
   const inputRef = (0, import_react.useRef)(null);
+  const searchFocus = (0, import_react.useRef)(null);
+  const wasWide = (0, import_react.useRef)(wide);
   const scrollerRef = (0, import_react.useRef)(null);
   const scrollOffsets = (0, import_react.useRef)(/* @__PURE__ */ new Map());
   const displayed = (0, import_react.useRef)(null);
@@ -137,6 +146,25 @@ function LeftFiles({ root, list, search, open, t }) {
       return new Map(previous).set(root, next);
     });
   }, [root]);
+  (0, import_react.useEffect)(() => {
+    const enteringWide = wide && !wasWide.current;
+    wasWide.current = wide;
+    const request = searchFocus.current;
+    const target = searchVisible && (enteringWide || request === "input") ? inputRef.current : !searchVisible && request === "button" ? searchButton.current : null;
+    if (target === null) return;
+    searchFocus.current = null;
+    target.focus({ preventScroll: true });
+  }, [searchVisible, wide]);
+  (0, import_react.useEffect)(() => {
+    if (!searchVisible) return;
+    const dismiss = (event) => {
+      if (!(event.target instanceof Node) || searchBox.current?.contains(event.target)) return;
+      inputRef.current?.blur();
+      if (query === "") update(endSearch);
+    };
+    document.addEventListener("click", dismiss);
+    return () => document.removeEventListener("click", dismiss);
+  }, [query, searchVisible, update]);
   const loadDirectory = (0, import_react.useCallback)((path, signal) => list(absoluteDirectory(root, path), signal), [root, list]);
   const settleDirectory = (0, import_react.useCallback)((path, result) => {
     const ordered = result.kind === "ready" ? {
@@ -168,8 +196,11 @@ function LeftFiles({ root, list, search, open, t }) {
   }
   (0, import_react.useLayoutEffect)(() => {
     const scroller = scrollerRef.current;
+    if (!scroller || !shown) {
+      displayed.current = null;
+      return;
+    }
     const previous = displayed.current;
-    if (!scroller) return;
     if (previous?.root !== root || previous.query !== query) {
       displayed.current = { root, query };
       scroller.scrollTop = scrollOffsets.current.get(root)?.[view] ?? 0;
@@ -181,13 +212,7 @@ function LeftFiles({ root, list, search, open, t }) {
       }
     }
     const target = pendingFocus.current;
-    if (target?.root === root && focusWithin.current) {
-      if (focusRow(target.path, target.reveal)) pendingFocus.current = null;
-      else if (!target.reveal) {
-        pendingFocus.current = null;
-        scroller.focus({ preventScroll: true });
-      }
-    }
+    if (target?.root === root && focusWithin.current && focusRow(target.path)) pendingFocus.current = null;
   });
   function rememberScroll(scroller) {
     const offsets = scrollOffsets.current.get(root) ?? { browse: 0, search: 0 };
@@ -202,12 +227,19 @@ function LeftFiles({ root, list, search, open, t }) {
   function changeQuery(value) {
     const target = value.trim();
     if (target !== query) resetSearchScroll();
-    pendingFocus.current = searching && target === "" && workspace.active.browse !== void 0 ? { root, path: workspace.active.browse, reveal: false } : null;
-    update((previous) => target === previous.query.trim() ? { ...previous, query: value } : { ...previous, query: value, matches: void 0, active: { browse: previous.active.browse ?? void 0 } });
+    pendingFocus.current = null;
+    update((previous) => target === previous.query.trim() ? { ...previous, query: value } : { ...previous, query: value, matches: void 0, active: { browse: previous.active.browse } });
   }
-  function clearSearch() {
-    inputRef.current?.focus({ preventScroll: true });
-    changeQuery("");
+  function startSearch() {
+    searchFocus.current = "input";
+    update((previous) => ({ ...previous, searchOpen: true }));
+    showFiles();
+  }
+  function closeSearch() {
+    resetSearchScroll();
+    pendingFocus.current = null;
+    searchFocus.current = "button";
+    update(endSearch);
   }
   function toggle(path) {
     update((previous) => {
@@ -218,7 +250,7 @@ function LeftFiles({ root, list, search, open, t }) {
   }
   function activate(row) {
     if (row.type === "file") {
-      open(row.path);
+      setOpenFailed(!open(row.path));
       return;
     }
     if (row.type !== "directory") return;
@@ -226,13 +258,13 @@ function LeftFiles({ root, list, search, open, t }) {
       toggle(row.path);
       return;
     }
-    pendingFocus.current = { root, path: row.path, reveal: true };
+    pendingFocus.current = { root, path: row.path };
     resetSearchScroll();
     scrollerRef.current?.focus({ preventScroll: true });
     update((previous) => {
       const expanded2 = new Set(previous.expanded);
       for (let path = row.path; path !== ""; path = parentOf(path)) expanded2.add(path);
-      return { ...previous, query: "", matches: void 0, expanded: expanded2, active: { browse: row.path } };
+      return { ...endSearch(previous), expanded: expanded2, active: { browse: row.path } };
     });
   }
   function onKeyDown(event) {
@@ -240,10 +272,10 @@ function LeftFiles({ root, list, search, open, t }) {
     const { key, target } = event;
     const atInput = target === inputRef.current;
     const atScroller = target === scrollerRef.current;
-    if (key === "Escape" && workspace.query !== "") {
+    if (key === "Escape" && searchVisible) {
       event.preventDefault();
       event.stopPropagation();
-      clearSearch();
+      closeSearch();
       return;
     }
     const targetPath = target instanceof HTMLButtonElement ? target.dataset.path : void 0;
@@ -276,7 +308,8 @@ function LeftFiles({ root, list, search, open, t }) {
       } else if (!atInput && key === "ArrowUp") {
         event.preventDefault();
         pendingFocus.current = null;
-        inputRef.current?.focus({ preventScroll: true });
+        const control = inputRef.current ?? searchButton.current;
+        control?.focus({ preventScroll: true });
       }
       return;
     }
@@ -347,7 +380,7 @@ function LeftFiles({ root, list, search, open, t }) {
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     "div",
     {
-      className: "dsh-left-files",
+      className: "left-workspace-files__navigator",
       onKeyDown,
       onFocusCapture: (event) => {
         focusWithin.current = true;
@@ -360,58 +393,82 @@ function LeftFiles({ root, list, search, open, t }) {
         }
       },
       children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "dsh-left-files__search", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "left-workspace-files__header", "data-search-open": searchVisible || void 0, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "left-workspace-files__title-slot", ...{ inert: searchVisible ? "" : void 0 }, children: titleButton }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "left-workspace-files__search", ref: searchBox, role: searchVisible ? "search" : void 0, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Tooltip, { label: t("search"), delayMs: 500, side: wide ? "bottom" : "right", disabled: searchVisible, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                ref: searchButton,
+                type: "button",
+                className: "left-workspace-files__search-open",
+                "aria-label": t("search"),
+                "aria-expanded": searchVisible,
+                tabIndex: searchVisible ? -1 : 0,
+                onClick: () => {
+                  if (searchVisible) inputRef.current?.focus({ preventScroll: true });
+                  else startSearch();
+                },
+                children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: searchVisible ? 11 : wide ? 14 : 18 })
+              }
+            ) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "input",
+              {
+                ref: inputRef,
+                className: "left-workspace-files__search-input",
+                type: "search",
+                autoComplete: "off",
+                "aria-label": t("search"),
+                placeholder: t("search"),
+                value: workspace.query,
+                disabled: !searchVisible,
+                onChange: (event) => changeQuery(event.currentTarget.value)
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { type: "button", className: "left-workspace-files__search-close", "aria-label": t("closeSearch"), disabled: !searchVisible, onClick: closeSearch, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconCloseFillRegular, { size: 16 }) })
+          ] })
+        ] }),
+        activated && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { id: paneId, className: "dsh-left-files", "data-left-files-pane": "", hidden: !shown, children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            import_dsh_client_ui_primitives.Input,
+            "div",
             {
-              ref: inputRef,
-              className: "dsh-left-files__field",
-              icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconSearchOutlineRegular, { size: 14 }),
-              type: "search",
-              autoComplete: "off",
-              "aria-label": t("search"),
-              placeholder: t("search"),
-              value: workspace.query,
-              onChange: (event) => changeQuery(event.currentTarget.value)
+              className: "dsh-left-files__scroll",
+              ref: scrollerRef,
+              tabIndex: -1,
+              onScroll: (event) => {
+                if (shown) rememberScroll(event.currentTarget);
+              },
+              children: searching ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "group", "aria-label": t("search"), children: [
+                workspace.matches === void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: query, load: search, settle: settleSearch }, query),
+                rows.map(renderRow),
+                rows.length === 0 && renderNotice(
+                  workspace.matches === void 0 ? "loading" : workspace.matches.kind === "error" ? "error" : "empty",
+                  0,
+                  () => {
+                    inputRef.current?.focus({ preventScroll: true });
+                    update((previous) => ({ ...previous, matches: void 0 }));
+                  }
+                )
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { role: "tree", "aria-label": root, children: lines.map((line) => {
+                if (line.kind === "row") return renderRow(line.row);
+                const { path, depth, status } = line;
+                return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "none", children: [
+                  status === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: path, load: loadDirectory, settle: settleDirectory }, root),
+                  renderNotice(status, depth, () => {
+                    if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true });
+                    update((previous) => {
+                      const listings2 = new Map(previous.listings);
+                      listings2.delete(path);
+                      return { ...previous, listings: listings2 };
+                    });
+                  })
+                ] }, `status:${path}`);
+              }) })
             }
           ),
-          workspace.query !== "" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Tooltip, { label: t("clear"), side: "top", portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.Button, { size: "sm", "aria-label": t("clear"), onClick: clearSearch, icon: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_dsh_client_ui_primitives.IconCloseOutlineRegular, { size: 14 }) }) })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-          "div",
-          {
-            className: "dsh-left-files__scroll",
-            ref: scrollerRef,
-            tabIndex: -1,
-            onScroll: (event) => rememberScroll(event.currentTarget),
-            children: searching ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "group", "aria-label": t("search"), children: [
-              workspace.matches === void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: query, load: search, settle: settleSearch }, query),
-              rows.map(renderRow),
-              rows.length === 0 && renderNotice(
-                workspace.matches === void 0 ? "loading" : workspace.matches.kind === "error" ? "error" : "empty",
-                0,
-                () => {
-                  inputRef.current?.focus({ preventScroll: true });
-                  update((previous) => ({ ...previous, matches: void 0 }));
-                }
-              )
-            ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { role: "tree", "aria-label": root, children: lines.map((line) => {
-              if (line.kind === "row") return renderRow(line.row);
-              const { path, depth, status } = line;
-              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { role: "none", children: [
-                status === "loading" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoadEntries, { target: path, load: loadDirectory, settle: settleDirectory }, root),
-                renderNotice(status, depth, () => {
-                  if (!focusRow(path, false)) scrollerRef.current?.focus({ preventScroll: true });
-                  update((previous) => {
-                    const listings2 = new Map(previous.listings);
-                    listings2.delete(path);
-                    return { ...previous, listings: listings2 };
-                  });
-                })
-              ] }, `status:${path}`);
-            }) })
-          }
-        )
+          openFailed && shown && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
+        ] })
       ]
     }
   );
@@ -432,35 +489,115 @@ var leftFilesCss = `
   color: var(--dsw-alias-label-primary);
 }
 
-.dsh-left-files__search,
-.dsh-left-files__scroll {
-  font-size: 13px;
-  line-height: 1.4;
+.left-workspace-files__navigator { display: contents; }
+.left-workspace-files__title-slot {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  transition: opacity 120ms var(--ds-ease-in-out, ease-in-out);
+}
+.left-workspace-files__header[data-search-open] > .left-workspace-files__title-slot {
+  opacity: 0;
+  pointer-events: none;
 }
 
-.dsh-left-files__search {
+.left-workspace-files__search {
+  box-sizing: border-box;
   display: flex;
-  align-items: stretch;
-  flex: 0 0 auto;
-  min-inline-size: 0;
-  gap: 4px;
-  padding: 6px;
+  flex: none;
+  align-items: center;
+  inline-size: 28px;
+  block-size: 32px;
+  margin-inline-start: auto;
+  margin-inline-end: var(--dsh-sidebar-paint-inset, 3px);
+  border-radius: var(--dsw-radius-md);
+  overflow: hidden;
+  transition: inline-size 180ms var(--ds-ease-in-out, ease-in-out);
 }
 
-.dsh-left-files__field {
-  flex: 1 1 0;
-  min-inline-size: 0;
+.left-workspace-files__header[data-search-open] > .left-workspace-files__search {
+  inline-size: calc(100% - 2 * var(--dsh-sidebar-paint-inset, 3px));
+  border: 0.5px solid var(--dsw-alias-border-l4);
 }
 
-.dsh-left-files__field input {
-  min-inline-size: 0;
+.left-workspace-files__search-open,
+.left-workspace-files__search-close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
 }
 
-.dsh-left-files__search input::-webkit-search-cancel-button {
+.left-workspace-files__search-open { inline-size: 28px; block-size: 28px; }
+.left-workspace-files__search-open[aria-expanded='true'] { color: var(--dsw-alias-label-tertiary); cursor: text; }
+.left-workspace-files__search-close { inline-size: 24px; block-size: 24px; margin-inline-end: 4px; }
+
+.left-workspace-files[data-rail] .left-workspace-files__header { flex-direction: column; gap: 4px; }
+.left-workspace-files[data-rail] .left-workspace-files__title-slot { flex: none; }
+.left-workspace-files[data-rail] .left-workspace-files__search {
+  inline-size: 36px;
+  block-size: 36px;
+  margin: 0;
+  transition: none;
+}
+.left-workspace-files[data-rail] .left-workspace-files__search-open {
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: var(--dsw-radius-md);
+  color: var(--dsw-alias-label-primary);
+}
+
+.left-workspace-files__search-input {
+  flex: 1;
+  inline-size: 0;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
   appearance: none;
 }
 
+.left-workspace-files__search-input,
+.left-workspace-files__search-close { transition: opacity 120ms var(--ds-ease-in-out, ease-in-out); }
+.left-workspace-files__search-input:disabled,
+.left-workspace-files__search-close:disabled { opacity: 0; visibility: hidden; }
+
+.left-workspace-files__search-input::placeholder { color: var(--dsw-alias-label-tertiary); }
+.left-workspace-files__search-input::-webkit-search-cancel-button { appearance: none; }
+
+.left-workspace-files__search-open:focus-visible,
+.left-workspace-files__search-close:focus-visible,
+.left-workspace-files__search:has(> .left-workspace-files__search-input:focus-visible) {
+  outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -2px;
+}
+
+@media (hover: hover) {
+  .left-workspace-files__search-open[aria-expanded='false']:hover,
+  .left-workspace-files__search-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .left-workspace-files__title-slot,
+  .left-workspace-files__search,
+  .left-workspace-files__search-input,
+  .left-workspace-files__search-close { transition: none; }
+}
+
 .dsh-left-files__scroll {
+  font-size: 13px;
+  line-height: 1.4;
   flex: 1 1 auto;
   min-block-size: 0;
   min-inline-size: 0;
@@ -604,10 +741,7 @@ var leftFilesCss = `
 }
 
 @media (pointer: coarse) {
-  .dsh-left-files__search input {
-    font-size: max(16px, 1em);
-  }
-  .dsh-left-files__search input,
+  .left-workspace-files__search-input { font-size: 16px; }
   .dsh-left-files__row {
     min-block-size: 40px;
   }
@@ -624,19 +758,19 @@ function labels(...copy) {
     loading: copy[4],
     error: copy[5],
     retry: copy[6],
-    clear: copy[7],
+    closeSearch: copy[7],
     openFailed: copy[8]
   };
 }
 var dictionaries = {
-  en: labels("Workspace files", "Open a workspace session to browse files.", "Search files or paths", "No entries", "Loading\u2026", "Could not load files.", "Retry", "Clear search", "A preview is unavailable for this file."),
-  zh: labels("\u5DE5\u4F5C\u533A\u6587\u4EF6", "\u6253\u5F00\u4E00\u4E2A\u5DE5\u4F5C\u533A\u4F1A\u8BDD\u5373\u53EF\u6D4F\u89C8\u6587\u4EF6\u3002", "\u641C\u7D22\u6587\u4EF6\u540D\u6216\u8DEF\u5F84", "\u6CA1\u6709\u6761\u76EE", "\u6B63\u5728\u52A0\u8F7D\u2026", "\u65E0\u6CD5\u52A0\u8F7D\u6587\u4EF6\u3002", "\u91CD\u8BD5", "\u6E05\u7A7A\u641C\u7D22", "\u6B64\u6587\u4EF6\u65E0\u6CD5\u9884\u89C8\u3002"),
-  ja: labels("\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30D5\u30A1\u30A4\u30EB", "\u30D5\u30A1\u30A4\u30EB\u3092\u95B2\u89A7\u3059\u308B\u306B\u306F\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30BB\u30C3\u30B7\u30E7\u30F3\u3092\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002", "\u30D5\u30A1\u30A4\u30EB\u540D\u307E\u305F\u306F\u30D1\u30B9\u3092\u691C\u7D22", "\u9805\u76EE\u304C\u3042\u308A\u307E\u305B\u3093", "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026", "\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002", "\u518D\u8A66\u884C", "\u691C\u7D22\u3092\u6D88\u53BB", "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u306F\u30D7\u30EC\u30D3\u30E5\u30FC\u3067\u304D\u307E\u305B\u3093\u3002"),
-  de: labels("Arbeitsbereichsdateien", "\xD6ffnen Sie eine Sitzung im Arbeitsbereich, um Dateien zu durchsuchen.", "Dateien oder Pfade suchen", "Keine Eintr\xE4ge", "Wird geladen\u2026", "Dateien konnten nicht geladen werden.", "Erneut versuchen", "Suche leeren", "F\xFCr diese Datei ist keine Vorschau verf\xFCgbar."),
-  es: labels("Archivos del espacio de trabajo", "Abre una sesi\xF3n del espacio de trabajo para explorar archivos.", "Buscar archivos o rutas", "No hay elementos", "Cargando\u2026", "No se pudieron cargar los archivos.", "Reintentar", "Borrar b\xFAsqueda", "No hay vista previa para este archivo."),
-  fr: labels("Fichiers de l\u2019espace de travail", "Ouvrez une session de l\u2019espace de travail pour parcourir les fichiers.", "Rechercher des fichiers ou des chemins", "Aucun \xE9l\xE9ment", "Chargement\u2026", "Impossible de charger les fichiers.", "R\xE9essayer", "Effacer la recherche", "Aucun aper\xE7u pour ce fichier."),
-  pt: labels("Arquivos do espa\xE7o de trabalho", "Abra uma sess\xE3o do espa\xE7o de trabalho para navegar pelos arquivos.", "Pesquisar arquivos ou caminhos", "Nenhum item", "Carregando\u2026", "N\xE3o foi poss\xEDvel carregar os arquivos.", "Tentar novamente", "Limpar pesquisa", "N\xE3o h\xE1 pr\xE9via deste arquivo."),
-  ru: labels("\u0424\u0430\u0439\u043B\u044B \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438", "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0435\u0430\u043D\u0441 \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u0434\u043B\u044F \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 \u0444\u0430\u0439\u043B\u043E\u0432.", "\u041F\u043E\u0438\u0441\u043A \u0444\u0430\u0439\u043B\u043E\u0432 \u0438\u043B\u0438 \u043F\u0443\u0442\u0435\u0439", "\u041D\u0435\u0442 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432", "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026", "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B.", "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C", "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C \u043F\u043E\u0438\u0441\u043A", "\u041F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u044D\u0442\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.")
+  en: labels("Workspace files", "Open a workspace session to browse files.", "Search files or paths", "No entries", "Loading\u2026", "Could not load files.", "Retry", "Close search", "A preview is unavailable for this file."),
+  zh: labels("\u5DE5\u4F5C\u533A\u6587\u4EF6", "\u6253\u5F00\u4E00\u4E2A\u5DE5\u4F5C\u533A\u4F1A\u8BDD\u5373\u53EF\u6D4F\u89C8\u6587\u4EF6\u3002", "\u641C\u7D22\u6587\u4EF6\u540D\u6216\u8DEF\u5F84", "\u6CA1\u6709\u6761\u76EE", "\u6B63\u5728\u52A0\u8F7D\u2026", "\u65E0\u6CD5\u52A0\u8F7D\u6587\u4EF6\u3002", "\u91CD\u8BD5", "\u5173\u95ED\u641C\u7D22", "\u6B64\u6587\u4EF6\u65E0\u6CD5\u9884\u89C8\u3002"),
+  ja: labels("\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30D5\u30A1\u30A4\u30EB", "\u30D5\u30A1\u30A4\u30EB\u3092\u95B2\u89A7\u3059\u308B\u306B\u306F\u30EF\u30FC\u30AF\u30B9\u30DA\u30FC\u30B9\u306E\u30BB\u30C3\u30B7\u30E7\u30F3\u3092\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002", "\u30D5\u30A1\u30A4\u30EB\u540D\u307E\u305F\u306F\u30D1\u30B9\u3092\u691C\u7D22", "\u9805\u76EE\u304C\u3042\u308A\u307E\u305B\u3093", "\u8AAD\u307F\u8FBC\u307F\u4E2D\u2026", "\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002", "\u518D\u8A66\u884C", "\u691C\u7D22\u3092\u9589\u3058\u308B", "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u306F\u30D7\u30EC\u30D3\u30E5\u30FC\u3067\u304D\u307E\u305B\u3093\u3002"),
+  de: labels("Arbeitsbereichsdateien", "\xD6ffnen Sie eine Sitzung im Arbeitsbereich, um Dateien zu durchsuchen.", "Dateien oder Pfade suchen", "Keine Eintr\xE4ge", "Wird geladen\u2026", "Dateien konnten nicht geladen werden.", "Erneut versuchen", "Suche schlie\xDFen", "F\xFCr diese Datei ist keine Vorschau verf\xFCgbar."),
+  es: labels("Archivos del espacio de trabajo", "Abre una sesi\xF3n del espacio de trabajo para explorar archivos.", "Buscar archivos o rutas", "No hay elementos", "Cargando\u2026", "No se pudieron cargar los archivos.", "Reintentar", "Cerrar b\xFAsqueda", "No hay vista previa para este archivo."),
+  fr: labels("Fichiers de l\u2019espace de travail", "Ouvrez une session de l\u2019espace de travail pour parcourir les fichiers.", "Rechercher des fichiers ou des chemins", "Aucun \xE9l\xE9ment", "Chargement\u2026", "Impossible de charger les fichiers.", "R\xE9essayer", "Fermer la recherche", "Aucun aper\xE7u pour ce fichier."),
+  pt: labels("Arquivos do espa\xE7o de trabalho", "Abra uma sess\xE3o do espa\xE7o de trabalho para navegar pelos arquivos.", "Pesquisar arquivos ou caminhos", "Nenhum item", "Carregando\u2026", "N\xE3o foi poss\xEDvel carregar os arquivos.", "Tentar novamente", "Fechar pesquisa", "N\xE3o h\xE1 pr\xE9via deste arquivo."),
+  ru: labels("\u0424\u0430\u0439\u043B\u044B \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438", "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0435\u0430\u043D\u0441 \u0440\u0430\u0431\u043E\u0447\u0435\u0439 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u0434\u043B\u044F \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430 \u0444\u0430\u0439\u043B\u043E\u0432.", "\u041F\u043E\u0438\u0441\u043A \u0444\u0430\u0439\u043B\u043E\u0432 \u0438\u043B\u0438 \u043F\u0443\u0442\u0435\u0439", "\u041D\u0435\u0442 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432", "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026", "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B\u044B.", "\u041F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u044C", "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043F\u043E\u0438\u0441\u043A", "\u041F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \u044D\u0442\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.")
 };
 
 // src/client/index.tsx
@@ -673,9 +807,12 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   min-block-size: 0;
 }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
+.left-workspace-files__header { display: flex; flex: none; align-items: center; min-inline-size: 0; }
 .left-workspace-files__trigger { flex: none; }
-.left-workspace-files:not([data-rail]) > button.left-workspace-files__trigger {
+.left-workspace-files:not([data-rail]) button.left-workspace-files__trigger {
   inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
   block-size: 32px;
   border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent;
   padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
@@ -684,7 +821,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   text-align: start;
   background-clip: padding-box;
 }
-.left-workspace-files[data-rail] > .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
+.left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
 .left-workspace-files__trigger[aria-expanded='true']:not(:active) {
   background-color: var(--dsw-alias-interactive-bg-hover);
 }
@@ -762,7 +899,6 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const triggerLabel = title === filesLabel ? title : `${title} \xB7 ${filesLabel}`;
   const [opened, setOpened] = (0, import_react2.useState)(false);
   const [activated, setActivated] = (0, import_react2.useState)(false);
-  const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
   const paneId = (0, import_react2.useId)();
   const session = (0, import_react2.useMemo)(() => sessionId === void 0 ? void 0 : connect(sessionId), [sessionId, connect]);
   const shown = opened && wide;
@@ -770,34 +906,51 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   (0, import_react2.useLayoutEffect)(() => {
     container.toggleAttribute("data-open", shown);
   }, [container, shown]);
+  const titleButton = /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: wide ? title : triggerLabel, side: "right", onlyWhenClipped: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    import_dsh_client_ui_primitives2.Button,
+    {
+      ref: trigger,
+      className: "left-workspace-files__trigger",
+      "aria-label": triggerLabel,
+      "aria-expanded": shown,
+      "aria-controls": activated ? paneId : void 0,
+      icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderIcon, { size: 16, className: "left-workspace-files__icon" }),
+      onClick: () => {
+        if (!wide) expand();
+        setOpened(!shown);
+        setActivated(true);
+      },
+      children: wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "left-workspace-files__title", children: title }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconChevronRightOutlineRegular, { size: 12, className: "left-workspace-files__chevron" })
+      ] })
+    }
+  ) });
   return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "left-workspace-files-anchor", ref: anchor }),
     (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: sectionCss + leftFilesCss }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: wide ? title : triggerLabel, side: "right", onlyWhenClipped: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        import_dsh_client_ui_primitives2.Button,
+      root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "left-workspace-files__header", children: titleButton }),
+        activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { id: paneId, "data-left-files-pane": "", hidden: !shown, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        LeftFiles,
         {
-          ref: trigger,
-          className: "left-workspace-files__trigger",
-          "aria-label": triggerLabel,
-          "aria-expanded": shown,
-          "aria-controls": activated ? paneId : void 0,
-          icon: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FolderIcon, { size: 16, className: "left-workspace-files__icon" }),
-          onClick: () => {
-            if (!wide) expand();
-            setOpened(!shown);
+          ...session,
+          root,
+          titleButton,
+          wide,
+          shown,
+          activated,
+          paneId,
+          showFiles: () => {
+            setOpened(true);
             setActivated(true);
+            if (!wide) expand();
           },
-          children: wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "left-workspace-files__title", children: title }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconChevronRightOutlineRegular, { size: 12, className: "left-workspace-files__chevron" })
-          ] })
+          t
         }
-      ) }),
-      activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { id: paneId, "data-left-files-pane": "", hidden: !shown, children: [
-        root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeftFiles, { root, list: session.list, search: session.search, t, open: (path) => setOpenFailed(!session.open(path)) }),
-        openFailed && shown && root !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
-      ] })
+      )
     ] }), container)
   ] });
 }

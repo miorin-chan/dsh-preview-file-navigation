@@ -77,9 +77,12 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   min-block-size: 0;
 }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
+.left-workspace-files__header { display: flex; flex: none; align-items: center; min-inline-size: 0; }
 .left-workspace-files__trigger { flex: none; }
-.left-workspace-files:not([data-rail]) > button.left-workspace-files__trigger {
+.left-workspace-files:not([data-rail]) button.left-workspace-files__trigger {
   inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
   block-size: 32px;
   border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent;
   padding-inline: calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px));
@@ -88,7 +91,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   text-align: start;
   background-clip: padding-box;
 }
-.left-workspace-files[data-rail] > .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
+.left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
 .left-workspace-files__trigger[aria-expanded='true']:not(:active) {
   background-color: var(--dsw-alias-interactive-bg-hover);
 }
@@ -174,7 +177,6 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const triggerLabel = title === filesLabel ? title : `${title} · ${filesLabel}`
   const [opened, setOpened] = useState(false)
   const [activated, setActivated] = useState(false)
-  const [openFailed, setOpenFailed] = useState(false)
   const paneId = useId()
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
   const shown = opened && wide
@@ -182,36 +184,52 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   useLayoutEffect(() => {
     container.toggleAttribute('data-open', shown)
   }, [container, shown])
+  const titleButton = (
+    <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
+      <Button
+        ref={trigger}
+        className="left-workspace-files__trigger"
+        aria-label={triggerLabel}
+        aria-expanded={shown}
+        aria-controls={activated ? paneId : undefined}
+        icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
+        onClick={() => {
+          if (!wide) expand()
+          setOpened(!shown)
+          setActivated(true)
+        }}
+      >
+        {wide && <>
+          <span className="left-workspace-files__title">{title}</span>
+          <IconChevronRightOutlineRegular size={12} className="left-workspace-files__chevron" />
+        </>}
+      </Button>
+    </Tooltip>
+  )
   return <>
     <div className="left-workspace-files-anchor" ref={anchor} />
     {createPortal(<>
       <style>{sectionCss + leftFilesCss}</style>
-      <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
-        <Button
-          ref={trigger}
-          className="left-workspace-files__trigger"
-          aria-label={triggerLabel}
-          aria-expanded={shown}
-          aria-controls={activated ? paneId : undefined}
-          icon={<FolderIcon size={16} className="left-workspace-files__icon" />}
-          onClick={() => {
-            if (!wide) expand()
-            setOpened(!shown)
-            setActivated(true)
-          }}
-        >
-          {wide && <>
-            <span className="left-workspace-files__title">{title}</span>
-            <IconChevronRightOutlineRegular size={12} className="left-workspace-files__chevron" />
-          </>}
-        </Button>
-      </Tooltip>
-      {activated && <div id={paneId} data-left-files-pane="" hidden={!shown}>
-        {root === undefined || session === undefined
-          ? <p data-left-files-notice="">{t('noSession')}</p>
-          : <LeftFiles root={root} list={session.list} search={session.search} t={t} open={path => setOpenFailed(!session.open(path))} />}
-        {openFailed && shown && root !== undefined && <p data-left-files-notice="" role="status">{t('openFailed')}</p>}
-      </div>}
+      {root === undefined || session === undefined ? <>
+        <div className="left-workspace-files__header">{titleButton}</div>
+        {activated && <div id={paneId} data-left-files-pane="" hidden={!shown}>
+          <p data-left-files-notice="">{t('noSession')}</p>
+        </div>}
+      </> : <LeftFiles
+        {...session}
+        root={root}
+        titleButton={titleButton}
+        wide={wide}
+        shown={shown}
+        activated={activated}
+        paneId={paneId}
+        showFiles={() => {
+          setOpened(true)
+          setActivated(true)
+          if (!wide) expand()
+        }}
+        t={t}
+      />}
     </>, container)}
   </>
 }
