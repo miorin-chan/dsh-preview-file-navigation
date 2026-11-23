@@ -19,6 +19,7 @@ import { LeftFiles } from './LeftFiles.js'
 import type { LeftFilesProps } from './LeftFiles.js'
 import { leftFilesCss } from './LeftFiles.css.js'
 import { dictionaries, type Key } from './locale.js'
+import { SECTION_CLOSING, useSectionMotion } from './section-motion.js'
 
 const ID = 'dsh-preview-file-navigation'
 const SLOT = 'sidebar.footer.action'
@@ -52,7 +53,12 @@ const sectionCss = `
 div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .left-workspace-files:not([data-rail])) {
   flex-wrap: wrap;
 }
-.left-workspace-files { flex: none; min-width: 0; color: var(--dsw-alias-label-primary); }
+.left-workspace-files {
+  --left-files-header-size: 36px;
+  flex: none;
+  min-width: 0;
+  color: var(--dsw-alias-label-primary);
+}
 /* DSH rc.5 normally gives the workspace browser a full viewport below navigation.
    Bound its grid row to the space left by navigation so the files stay visible. */
 [data-sidebar-scrollport]:has([data-sidebar-list-area] + .left-workspace-files) {
@@ -74,6 +80,18 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   flex-direction: column;
   min-block-size: 0;
 }
+/* While closing, the section rests at its header size and the files stay painted but
+   inert, so section-motion.ts can shrink them away. */
+[data-sidebar-list-area] + .left-workspace-files[${SECTION_CLOSING}] {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  block-size: var(--left-files-header-size);
+  min-block-size: 0;
+  overflow: clip;
+}
+.left-workspace-files[${SECTION_CLOSING}] [data-left-files-pane] { interactivity: inert; }
+.left-workspace-files[${SECTION_CLOSING}] [data-left-files-pane][hidden] { display: flex; }
 .left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files__header { display: flex; flex: none; align-items: center; min-inline-size: 0; }
 .left-workspace-files__trigger { flex: none; }
@@ -90,7 +108,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
    Sessions header toggle of dsh-workspace-list-toggle. Label and arrow form one
    disclosure target, so hover only brightens their color, as .row does in
    src/DisclosureRow.module.css of @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5. */
-.left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: 36px; }
+.left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: var(--left-files-header-size); }
 .left-workspace-files:not([data-rail]) .left-workspace-files__trigger {
   box-sizing: border-box;
   display: inline-flex;
@@ -202,9 +220,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
   const paneId = useId()
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
   const shown = opened && wide
-  useLayoutEffect(() => {
-    container.toggleAttribute('data-open', shown)
-  }, [container, shown])
+  const prepareMotion = useSectionMotion(container, shown, wide)
   const triggerProps = {
     ref: trigger,
     className: 'left-workspace-files__trigger',
@@ -213,6 +229,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     'aria-controls': activated ? paneId : undefined,
     onClick: () => {
       if (!wide) expand()
+      else prepareMotion()
       setOpened(!shown)
       setActivated(true)
     },
@@ -250,6 +267,7 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
         activated={activated}
         paneId={paneId}
         showFiles={() => {
+          if (!shown && wide) prepareMotion()
           setOpened(true)
           setActivated(true)
           if (!wide) expand()
