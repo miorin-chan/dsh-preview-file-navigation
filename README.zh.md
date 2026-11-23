@@ -10,6 +10,7 @@
 此本地插件包仅支持 **DeepSeek Harness 0.2.2-rc.5** 的 Web 客户端。
 在 **插件** → **添加插件** 中选择此插件包目录。
 安装后请保留该目录的位置。
+[Workspace Atlas](../dsh-atlas-workspace/README.zh.md) 已包含「工作区文件」，选择一种方式安装即可。
 
 ## 使用
 
