@@ -13,13 +13,15 @@
 
 ## 构建与验证
 
-在插件目录执行以下命令。
+在新检出的插件目录中执行以下命令。
+安装依赖时，`prepare` 会生成运行文件。
 
 ```sh
-pnpm install --ignore-scripts
-pnpm run build
+pnpm install --frozen-lockfile
 pnpm run check
 ```
+
+修改源码后，先运行 `pnpm run build` 更新产物，再运行检查。
 
 在一次性 Web 配置中检查入口是否位于会话列表下方并显示当前工作区名称、文件区能否原位展开和收起、
 目录是否随当前会话切换，以及预览能否在右侧打开。

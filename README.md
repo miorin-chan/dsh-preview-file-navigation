@@ -8,8 +8,8 @@ Select a file to open it in the built-in right sidebar preview.
 ## Install
 
 This local bundle requires exactly **DeepSeek Harness 0.2.2-rc.5** and its Web client.
-In **Plugins** → **Add plugin**, select this package directory.
-Keep the directory at the selected path while the bundle is installed.
+Run `pnpm install --frozen-lockfile` in a fresh checkout to install dependencies and build the plugin.
+Then select this directory in **Plugins** → **Add plugin** and keep it at that path while installed.
 [Workspace Atlas](../dsh-atlas-workspace/README.md) already includes Workspace files.
 Choose one installation.
 

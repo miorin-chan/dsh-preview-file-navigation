@@ -8,7 +8,8 @@
 ## 安装
 
 此本地插件包仅支持 **DeepSeek Harness 0.2.2-rc.5** 的 Web 客户端。
-在 **插件** → **添加插件** 中选择此插件包目录。安装后请保留该目录的位置。
+在新检出的目录中运行 `pnpm install --frozen-lockfile` 安装依赖并构建插件。
+然后在 **插件** → **添加插件** 中选择该目录，并在安装期间保留其位置。
 [Workspace Atlas](../dsh-atlas-workspace/README.zh.md) 已包含「工作区文件」，选择一种方式安装即可。
 
 ## 使用
