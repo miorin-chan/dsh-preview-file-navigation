@@ -35,6 +35,7 @@ __export(index_exports, {
 });
 module.exports = __toCommonJS(index_exports);
 var import_react2 = require("react");
+var import_react_dom = require("react-dom");
 var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // src/client/LeftFiles.tsx
@@ -640,11 +641,13 @@ var ID = "dsh-preview-file-navigation";
 var SLOT = "sidebar.footer.action";
 var EXCLUDED = [".git", ".hg", ".svn", ".pnpm-store", "node_modules"];
 var inject = ["slots", "locale", "layout", "sidebarRight", "sidebarRightTabs", "remote", "remote.workspaceFiles"];
-var footerCss = `
-/* The footer is a flex row and its slot anchor is display: contents. */
-div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files:not([data-rail])) { flex-wrap: wrap; }
-.left-workspace-files { flex: 0 0 100%; min-width: 0; color: var(--dsw-alias-label-primary); }
-.left-workspace-files[data-rail] { flex-basis: auto; }
+var sectionCss = `
+.left-workspace-files-anchor { display: contents; }
+div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .left-workspace-files:not([data-rail])) {
+  flex-wrap: wrap;
+}
+.left-workspace-files { flex: none; min-width: 0; color: var(--dsw-alias-label-primary); }
+.left-workspace-files-anchor > .left-workspace-files:not([data-rail]) { flex-basis: 100%; }
 .left-workspace-files > button { width: 100%; justify-content: flex-start; text-align: start; }
 .left-workspace-files__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .left-workspace-files > button[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-active); }
@@ -653,34 +656,61 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files:not([data-
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
 .left-workspace-files [data-left-files-notice] { margin: 8px; color: var(--dsw-alias-label-secondary); font-size: 12px; overflow-wrap: anywhere; }
 `;
-function Footer({ wide, useMountedSession, useSessions, connect, expand, t }) {
+function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, connect, expand, t }) {
+  const anchor = (0, import_react2.useRef)(null);
+  const [container] = (0, import_react2.useState)(() => {
+    const section = document.createElement("section");
+    section.className = "left-workspace-files";
+    return section;
+  });
+  (0, import_react2.useLayoutEffect)(() => {
+    const footer = anchor.current;
+    if (footer === null) return;
+    container.toggleAttribute("data-rail", !wide);
+    let list = null;
+    if (wide) {
+      for (let parent = footer.parentElement; parent !== null; parent = parent.parentElement) {
+        list = parent.querySelector("[data-sidebar-scrollport] [data-sidebar-list-area]");
+        if (list !== null) break;
+      }
+    }
+    if (list === null) footer.append(container);
+    else list.after(container);
+    return () => container.remove();
+  }, [container, wide]);
   const sessionId = useMountedSession((session2) => session2);
   const root = useSessions((snapshot) => sessionId === void 0 ? void 0 : snapshot.byId[sessionId]?.cwd);
+  const workspaceTitle = useWorkspaces((snapshot) => sessionId === void 0 ? void 0 : snapshot.items.find((workspace) => workspace.sessionIds.includes(sessionId))?.title ?? snapshot.items.find((workspace) => workspace.path === root)?.title);
+  const directoryName = root?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  const title = workspaceTitle || directoryName || root || t("title");
   const [opened, setOpened] = (0, import_react2.useState)(false);
   const [activated, setActivated] = (0, import_react2.useState)(false);
   const [openFailed, setOpenFailed] = (0, import_react2.useState)(false);
   const session = (0, import_react2.useMemo)(() => sessionId === void 0 ? void 0 : connect(sessionId), [sessionId, connect]);
   const shown = opened && wide;
-  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "left-workspace-files", "data-rail": wide ? void 0 : "", children: [
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: footerCss + leftFilesCss }),
-    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: t("title"), side: "right", disabled: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      import_dsh_client_ui_primitives2.Button,
-      {
-        "aria-label": t("title"),
-        "aria-expanded": shown,
-        icon: shown ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderOpenRegular, { size: 16 }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderCloseRegular, { size: 16 }),
-        onClick: () => {
-          if (!wide) expand();
-          setOpened(!shown);
-          setActivated(true);
-        },
-        children: wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "left-workspace-files__title", children: t("title") })
-      }
-    ) }),
-    activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-left-files-pane": "", hidden: !shown, children: [
-      root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeftFiles, { root, list: session.list, search: session.search, t, open: (path) => setOpenFailed(!session.open(path)) }),
-      openFailed && shown && root !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
-    ] })
+  return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "left-workspace-files-anchor", ref: anchor }),
+    (0, import_react_dom.createPortal)(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("style", { children: sectionCss + leftFilesCss }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.Tooltip, { label: title, side: "right", disabled: wide, portal: true, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        import_dsh_client_ui_primitives2.Button,
+        {
+          "aria-label": title,
+          "aria-expanded": shown,
+          icon: shown ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderOpenRegular, { size: 16 }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_dsh_client_ui_primitives2.IconFolderCloseRegular, { size: 16 }),
+          onClick: () => {
+            if (!wide) expand();
+            setOpened(!shown);
+            setActivated(true);
+          },
+          children: wide && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "left-workspace-files__title", title, children: title })
+        }
+      ) }),
+      activated && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-left-files-pane": "", hidden: !shown, children: [
+        root === void 0 || session === void 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", children: t("noSession") }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(LeftFiles, { root, list: session.list, search: session.search, t, open: (path) => setOpenFailed(!session.open(path)) }),
+        openFailed && shown && root !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { "data-left-files-notice": "", role: "status", children: t("openFailed") })
+      ] })
+    ] }), container)
   ] });
 }
 function apply(ctx) {
@@ -719,7 +749,7 @@ function apply(ctx) {
       connect,
       expand: () => ctx.layout.toggleSidebar()
     })
-  }, Footer)), `${ID}: left sidebar files`);
+  }, WorkspaceFiles)), `${ID}: left sidebar files`);
 }
 
     return module.exports;

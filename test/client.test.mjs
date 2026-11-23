@@ -11,12 +11,12 @@ async function client() {
   new Script(source).runInNewContext({ window: { __ModuleLoader__: { load(entry) { registration = entry } } } })
   assert.equal(registration?.id, manifest.name)
   return registration.factory(id => {
-    assert.ok(['react', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-primitives'].includes(id))
+    assert.ok(['react', 'react-dom', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-primitives'].includes(id))
     return {}
   })
 }
 
-test('registers one additive entry at the left sidebar foot and disposes it', async () => {
+test('registers and disposes the workspace files mount', async () => {
   const plugin = await client()
   const effects = []
   const entries = new Map()

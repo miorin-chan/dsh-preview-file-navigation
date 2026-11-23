@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Fichiers de l’espace de travail",
-    "description": "Sélectionnez Fichiers de l’espace de travail au-dessus des paramètres dans la barre latérale gauche pour parcourir le répertoire de travail de la session en cours ou y effectuer une recherche. Sélectionnez un fichier pour l’ouvrir dans l’aperçu intégré. Nécessite DeepSeek Harness 0.2.2-rc.5."
+    "description": "Sélectionnez le nom de l’espace de travail sous la liste des sessions dans la barre latérale gauche pour parcourir le répertoire de travail de la session en cours ou y effectuer une recherche. Sélectionnez un fichier pour l’ouvrir dans l’aperçu intégré. Nécessite DeepSeek Harness 0.2.2-rc.5."
   }
 }

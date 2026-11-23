@@ -13,12 +13,12 @@ Keep the directory at the selected path while the bundle is installed.
 
 ## Use
 
-1. Open a session with a working directory and select **Workspace files** above **Settings** in the left sidebar.
+1. Open a session with a working directory and select the workspace name below the session list in the left sidebar.
    The section expands in place and scrolls within the sidebar.
 2. Expand folders or use **Search files or paths**.
    Select a file to open the built-in preview.
    Select a folder in the search results to reveal it in the tree.
 3. Clear the search to return to the tree.
-   Select **Workspace files** again to collapse the section.
+   Select the workspace name again to collapse the section.
 
 [Development and compatibility notes](docs/README.md)

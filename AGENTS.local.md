@@ -12,7 +12,7 @@ This file supplements [AGENTS.md](AGENTS.md) with rules for the Workspace files 
 
 ## Implementation and verification
 
-- Keep the file browser in the left sidebar footer.
+- Place the file browser below the session list in the left sidebar.
   Use the current session’s working directory and send file opens through the native right sidebar preview.
 - Write source in TypeScript and regenerate the distributed JavaScript with [the build script](scripts/build.mjs).
 - The bundle targets exactly DeepSeek Harness 0.2.2-rc.5.
