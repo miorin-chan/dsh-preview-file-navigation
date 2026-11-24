@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { Script } from 'node:vm'
 import { test } from 'node:test'
 import { leftFilesCss } from '../src/client/LeftFiles.css.ts'
+import { scriptRuns } from '../src/client/script-runs.ts'
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -69,4 +70,13 @@ test('tree lines draw a native hairline for every ancestor level, through each a
 test('hover-capable file rows drop the ellipsis so the marquee can reveal the suffix', () => {
   const hoverClip = /@media \(hover: hover\)\s*\{\s*\.dsh-left-files__row:hover \.dsh-left-files__name\s*\{\s*text-overflow: clip;/
   assert.ok(hoverClip.test(leftFilesCss))
+})
+
+test('marks alphabetic runs of workspace titles for weight balancing, leaving CJK runs alone', () => {
+  assert.deepEqual(scriptRuns('default-workspace'), [{ text: 'default-workspace', script: 'alphabetic' }])
+  assert.deepEqual(scriptRuns('默认工作区'), [{ text: '默认工作区', script: 'cjk' }])
+  assert.deepEqual(scriptRuns('my-app 前端'), [
+    { text: 'my-app ', script: 'alphabetic' },
+    { text: '前端', script: 'cjk' },
+  ])
 })

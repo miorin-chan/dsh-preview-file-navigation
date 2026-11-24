@@ -19,6 +19,7 @@ import { LeftFiles } from './LeftFiles.js'
 import type { LeftFilesProps } from './LeftFiles.js'
 import { leftFilesCss } from './LeftFiles.css.js'
 import { dictionaries, type Key } from './locale.js'
+import { scriptRuns } from './script-runs.js'
 import { SECTION_CLOSING, useSectionMotion } from './section-motion.js'
 
 const ID = 'dsh-preview-file-navigation'
@@ -137,6 +138,9 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   white-space: nowrap;
   line-height: 20px;
 }
+/* Balance alphabetic workspace names against CJK section labels, following 跨文字标题平衡
+   in tools/new-dsh-plugin/README.md of default-workspace. */
+.left-workspace-files__title [data-script='alphabetic']:lang(zh) { font-weight: 450; }
 .left-workspace-files__arrow {
   display: inline-grid;
   flex: none;
@@ -239,7 +243,9 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
     <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
       {wide ? (
         <button type="button" {...triggerProps}>
-          <span className="left-workspace-files__title">{title}</span>
+          <span className="left-workspace-files__title">
+            {scriptRuns(title).map((run, index) => <span key={index} data-script={run.script}>{run.text}</span>)}
+          </span>
           <span className="left-workspace-files__arrow" aria-hidden="true">
             <IconTriangleRightFillRegular size={16} />
           </span>
