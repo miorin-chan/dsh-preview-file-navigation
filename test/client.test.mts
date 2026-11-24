@@ -72,7 +72,7 @@ test('hover-capable file rows drop the ellipsis so the marquee can reveal the su
   assert.ok(hoverClip.test(leftFilesCss))
 })
 
-test('marks alphabetic runs of workspace titles for weight balancing, leaving CJK runs alone', () => {
+test('marks alphabetic runs of workspace titles for size and weight balancing, leaving CJK runs alone', () => {
   assert.deepEqual(scriptRuns('default-workspace'), [{ text: 'default-workspace', script: 'alphabetic' }])
   assert.deepEqual(scriptRuns('默认工作区'), [{ text: '默认工作区', script: 'cjk' }])
   assert.deepEqual(scriptRuns('my-app 前端'), [

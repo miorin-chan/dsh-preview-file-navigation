@@ -140,7 +140,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 }
 /* Balance alphabetic workspace names against CJK section labels, following 跨文字标题平衡
    in tools/new-dsh-plugin/README.md of default-workspace. */
-.left-workspace-files__title [data-script='alphabetic']:lang(zh) { font-weight: 450; }
+.left-workspace-files__title [data-script='alphabetic']:lang(zh) { font-size-adjust: ex-height 0.56; font-weight: 500; }
 .left-workspace-files__arrow {
   display: inline-grid;
   flex: none;
