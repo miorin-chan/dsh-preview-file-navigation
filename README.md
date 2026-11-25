@@ -2,7 +2,8 @@
 
 [简体中文](README.zh.md)
 
-Browse the current session’s working directory from the left sidebar.
+Browse the current session’s working directory and the files the agent read or edited
+in the current turn from the left sidebar.
 Select a file to open it in the built-in right sidebar preview.
 
 ## Install
@@ -15,12 +16,15 @@ Choose one installation.
 
 ## Use
 
-1. Open a session with a working directory and select the workspace name below the session list in the left sidebar.
-   The section expands in place and scrolls within the sidebar.
-2. Expand folders or select the magnifying glass in the workspace header to open **Search files or paths**.
+1. Open a session with a working directory.
+   The workspace section below the session list opens in the current-turn view by default,
+   showing a pruned tree of files read or edited during the current turn along
+   with a trailing read/write indicator dot (collapsed folders also show a smaller dot when descendants were touched).
+2. Select the workspace name or triangle button to cycle
+   through **current-turn files → all workspace files → collapsed**.
+3. Select the magnifying glass in the workspace header to open **Search files or paths**.
    Select a file to open the built-in preview.
    Select a folder in the search results to reveal it in the tree.
-3. Press Esc or select the close button in the search field to return to the tree.
-   Select the workspace name again to collapse the section.
+4. Press Esc or select the close button in the search field to return to the previous tree view.
 
 [Development and compatibility notes](docs/README.md)

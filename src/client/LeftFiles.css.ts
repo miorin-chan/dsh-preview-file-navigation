@@ -200,8 +200,33 @@ export const leftFilesCss = `
 
 .dsh-left-files__label {
   display: grid;
+  flex: 1;
   grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
+}
+
+.dsh-left-files__activity {
+  flex: none;
+  align-self: center;
+  inline-size: 6px;
+  block-size: 6px;
+  margin-inline-start: 6px;
+  border-radius: 50%;
+}
+
+.dsh-left-files__activity[data-activity-scope='ancestor'] {
+  inline-size: 4px;
+  block-size: 4px;
+  opacity: 0.85;
+}
+
+.dsh-left-files__activity[data-activity='read'] {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.dsh-left-files__activity[data-activity='write'],
+.dsh-left-files__activity[data-activity='both'] {
+  background: var(--dsw-alias-state-warn-primary);
 }
 
 .dsh-left-files__name,

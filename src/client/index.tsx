@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, IconFolderCloseRegular, IconTriangleRightFillRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconFolderCloseRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-workspace-files/client'
@@ -15,16 +15,27 @@ import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controlle
 import type { WorkspaceDirectoryEntry } from '@deepseek-ai/dsh-api-workspace-files/types'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { EMPTY_TURN_FILES, TURN_FILES_PROJECTION_KEY } from '../shared/turn-files.ts'
 import { LeftFiles } from './LeftFiles.js'
 import type { LeftFilesProps } from './LeftFiles.js'
 import { leftFilesCss } from './LeftFiles.css.js'
 import { dictionaries, type Key } from './locale.js'
 import { scriptRuns } from './script-runs.js'
-import { SECTION_CLOSING, useSectionMotion } from './section-motion.js'
+import { NEXT_VIEW, SECTION_CLOSING, type SectionView, useSectionMotion } from './section-motion.js'
 
 const ID = 'dsh-preview-file-navigation'
 const SLOT = 'sidebar.footer.action'
 const EXCLUDED = ['.git', '.hg', '.svn', '.pnpm-store', 'node_modules']
+
+// IconTriangleRightFillRegular path from @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5,
+// rendered inline so the `recent` view can switch the glyph to an outline (`fill-opacity: 0; stroke-opacity: 1`).
+const TRIANGLE = 'M5.5 4.5C5.5 4.40714 5.52586 4.31612 5.57467 4.23713C5.62349 4.15815 5.69334 4.09431 5.77639 4.05279C5.85945 4.01126 5.95242 3.99368 6.0449 4.00202C6.13738 4.01036 6.22572 4.04429 6.3 4.1L10.967 7.6C11.0291 7.64657 11.0795 7.70697 11.1142 7.77639C11.1489 7.84582 11.167 7.92238 11.167 8C11.167 8.07762 11.1489 8.15418 11.1142 8.22361C11.0795 8.29303 11.0291 8.35343 10.967 8.4L6.3 11.9C6.22572 11.9557 6.13738 11.9896 6.0449 11.998C5.95242 12.0063 5.85945 11.9887 5.77639 11.9472C5.69334 11.9057 5.62349 11.8419 5.57467 11.7629C5.52586 11.6839 5.5 11.5929 5.5 11.5V4.5Z'
+
+const NEXT_LABEL = {
+  all: 'collapse',
+  collapsed: 'showRecent',
+  recent: 'showAll',
+} as const satisfies Record<SectionView, Key>
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -68,17 +79,31 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 [data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files) {
   max-block-size: 100%;
 }
-[data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files[data-open]) {
+[data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files[data-open][data-view='all']),
+[data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files[data-open][data-searching]) {
   block-size: 100%;
 }
-[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open]) {
+[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-view='all']),
+[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-searching]) {
   flex: 0 1 auto;
   max-block-size: 50%;
 }
-[data-sidebar-list-area] + .left-workspace-files[data-open] {
+[data-sidebar-list-area] + .left-workspace-files[data-open][data-view='all'],
+[data-sidebar-list-area] + .left-workspace-files[data-open][data-searching] {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
+  min-block-size: 0;
+}
+[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-view='recent']:not([data-searching])) {
+  flex: 1 1 0;
+  min-block-size: 0;
+}
+[data-sidebar-list-area] + .left-workspace-files[data-open][data-view='recent']:not([data-searching]) {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  max-block-size: 50%;
   min-block-size: 0;
 }
 /* While closing, the section rests at its header size and the files stay painted but
@@ -103,9 +128,9 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 .left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
 .left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
 /* Match the heading box and disclosure of Watched sessions and Background jobs.
-   The label and arrow follow .sectionLabel in src/client/rows/WorkspaceBrowser.module.css
-   and .arrow / .chevron in src/client/rows/Rows.module.css of
-   @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. */
+   The label, count, and arrow follow .sectionLabel in src/client/rows/WorkspaceBrowser.module.css,
+   .arrow / .chevron in src/client/rows/Rows.module.css of @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5,
+   and .labelGroup / .count / hollow attention triangle in dsh-watched-sessions. */
 .left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: var(--left-files-header-size); }
 .left-workspace-files__heading {
   display: flex;
@@ -136,6 +161,13 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   cursor: pointer;
   transition: color 100ms ease;
 }
+.left-workspace-files__label-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-inline-size: 0;
+  line-height: 20px;
+}
 .left-workspace-files__title {
   flex: 0 1 auto;
   min-inline-size: 0;
@@ -143,6 +175,10 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 20px;
+}
+.left-workspace-files__count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 /* Balance alphabetic workspace names against CJK section labels, following 跨文字标题平衡
    in tools/new-dsh-plugin/README.md of default-workspace. */
@@ -159,6 +195,16 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 .left-workspace-files__arrow > svg { transition: transform 150ms var(--ds-ease-in-out, ease-in-out); }
 .left-workspace-files__trigger:dir(rtl) .left-workspace-files__arrow > svg { transform: rotate(180deg); }
 .left-workspace-files__trigger[aria-expanded='true'] .left-workspace-files__arrow > svg { transform: rotate(90deg); }
+.left-workspace-files__arrow path {
+  stroke-opacity: 0;
+  transition:
+    fill-opacity 150ms var(--ds-ease-in-out, ease-in-out),
+    stroke-opacity 150ms var(--ds-ease-in-out, ease-in-out);
+}
+.left-workspace-files__trigger[data-view='recent'] .left-workspace-files__arrow path {
+  fill-opacity: 0;
+  stroke-opacity: 1;
+}
 @media (hover: hover) {
   .left-workspace-files:not([data-rail]) .left-workspace-files__trigger:hover,
   .left-workspace-files__trigger:hover .left-workspace-files__arrow { color: var(--dsw-alias-label-secondary); }
@@ -166,7 +212,8 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 @media (prefers-reduced-motion: reduce) {
   .left-workspace-files:not([data-rail]) .left-workspace-files__trigger,
   .left-workspace-files__arrow,
-  .left-workspace-files__arrow > svg { transition: none; }
+  .left-workspace-files__arrow > svg,
+  .left-workspace-files__arrow path { transition: none; }
 }
 .left-workspace-files [data-left-files-pane] { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .left-workspace-files [data-left-files-pane][hidden] { display: none; }
@@ -218,42 +265,69 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
 
   const sessionId = useMountedSession(session => session)
   const root = useSessions(snapshot => sessionId === undefined ? undefined : snapshot.byId[sessionId]?.cwd)
+  const turnFiles = useSessions(snapshot =>
+    sessionId === undefined ? undefined : snapshot.projectionsBySession?.[sessionId]?.values[TURN_FILES_PROJECTION_KEY],
+  ) ?? EMPTY_TURN_FILES
+  const recentCount = Object.keys(turnFiles).length
   const workspaceTitle = useWorkspaces(snapshot => sessionId === undefined ? undefined
     : snapshot.items.find(workspace => workspace.sessionIds.includes(sessionId))?.title
       ?? snapshot.items.find(workspace => workspace.path === root)?.title)
   const directoryName = root?.replace(/[\\/]+$/, '').split(/[\\/]/).pop()
   const filesLabel = t('title')
   const title = workspaceTitle || directoryName || root || filesLabel
-  const triggerLabel = title === filesLabel ? title : `${title} · ${filesLabel}`
-  const [opened, setOpened] = useState(false)
-  const [activated, setActivated] = useState(false)
+  const [view, setView] = useState<SectionView>('recent')
+  const shown = view !== 'collapsed' && wide
+  const [activated, setActivated] = useState(shown)
+  const [searching, setSearching] = useState(false)
+  useLayoutEffect(() => {
+    if (shown && !activated) setActivated(true)
+  }, [shown, activated])
+  useLayoutEffect(() => {
+    container.toggleAttribute('data-searching', searching && shown)
+  }, [container, searching, shown])
   const paneId = useId()
   const session = useMemo(() => sessionId === undefined ? undefined : connect(sessionId), [sessionId, connect])
-  const shown = opened && wide
-  const prepareMotion = useSectionMotion(container, shown, wide)
+  const prepareMotion = useSectionMotion(container, view, wide)
+  const nextLabel = t(NEXT_LABEL[view])
+  const triggerLabel = title === filesLabel ? nextLabel : `${title} · ${nextLabel}`
   const triggerProps = {
     ref: trigger,
     className: 'left-workspace-files__trigger',
+    'data-view': view,
     'aria-label': triggerLabel,
     'aria-expanded': shown,
     'aria-controls': activated ? paneId : undefined,
     onClick: () => {
-      if (!wide) expand()
-      else prepareMotion()
-      setOpened(!shown)
+      if (!wide) {
+        expand()
+        if (view === 'collapsed') setView('recent')
+        setActivated(true)
+        return
+      }
+      const next = NEXT_VIEW[view]
+      prepareMotion(next)
+      setView(next)
       setActivated(true)
     },
   }
   // The wide sidebar shows a section header; the rail keeps a 36px icon button.
   const titleButton = (
-    <Tooltip label={wide ? title : triggerLabel} side="right" onlyWhenClipped={wide} portal>
+    <Tooltip label={wide ? triggerLabel : `${title} · ${filesLabel}`} side="right" portal>
       {wide ? (
         <button type="button" {...triggerProps}>
-          <span className="left-workspace-files__title">
-            {scriptRuns(title).map((run, index) => <span key={index} data-script={run.script}>{run.text}</span>)}
+          <span className="left-workspace-files__label-group">
+            <span className="left-workspace-files__title">
+              {scriptRuns(title).map((run, index) => <span key={index} data-script={run.script}>{run.text}</span>)}
+            </span>
+            {recentCount > 0 && (
+              <span className="left-workspace-files__count" aria-hidden="true">{recentCount}</span>
+            )}
           </span>
           <span className="left-workspace-files__arrow" aria-hidden="true">
-            <IconTriangleRightFillRegular size={16} />
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
+              stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
+              <path d={TRIANGLE} />
+            </svg>
           </span>
         </button>
       ) : (
@@ -278,13 +352,18 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
         wide={wide}
         shown={shown}
         activated={activated}
+        viewMode={view}
+        turnFiles={turnFiles}
         paneId={paneId}
         showFiles={() => {
-          if (!shown && wide) prepareMotion()
-          setOpened(true)
+          if (view === 'collapsed') {
+            if (wide) prepareMotion('all')
+            setView('all')
+          }
           setActivated(true)
           if (!wide) expand()
         }}
+        onSearchingChange={setSearching}
         t={t}
       />}
     </>, container)}

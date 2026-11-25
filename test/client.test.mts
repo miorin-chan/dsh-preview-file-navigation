@@ -4,6 +4,8 @@ import { Script } from 'node:vm'
 import { test } from 'node:test'
 import { leftFilesCss } from '../src/client/LeftFiles.css.ts'
 import { scriptRuns } from '../src/client/script-runs.ts'
+import { NEXT_VIEW } from '../src/client/section-motion.ts'
+import { ancestorActivities, buildRecentTreeRows } from '../src/shared/turn-files.ts'
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 
@@ -65,6 +67,57 @@ test('tree lines draw a native hairline for every ancestor level, through each a
   assert.match(guides, /background-image: repeating-linear-gradient\([\s\S]*var\(--dsw-alias-border-l3\) 0 0\.5px,\s*transparent 0\.5px var\(--left-files-step\)/)
   assert.match(leftFilesCss, /:dir\(rtl\)::before \{\s*--left-files-guide-direction: to left;/)
   assert.match(leftFilesCss, /\.dsh-left-files__row \{\s*--left-files-content-start: 16px;/)
+})
+
+test('activity dots use DSH semantic state tokens and support collapsed ancestor indicators', () => {
+  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='read'\]\s*\{\s*background:\s*var\(--dsw-alias-state-business-primary\);/)
+  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='write'\],\s*\.dsh-left-files__activity\[data-activity='both'\]\s*\{\s*background:\s*var\(--dsw-alias-state-warn-primary\);/)
+  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity-scope='ancestor'\]\s*\{/)
+})
+
+test('section tri-state cycles all -> collapsed -> recent -> all and uses hollow triangle for recent', async () => {
+  assert.deepEqual(NEXT_VIEW, { all: 'collapsed', collapsed: 'recent', recent: 'all' })
+  const source = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
+  assert.match(source, /\.left-workspace-files__trigger\[data-view='recent'\] \.left-workspace-files__arrow path \{\s*fill-opacity:\s*0;\s*stroke-opacity:\s*1;\s*\}/)
+})
+
+test('builds pruned recent tree and bubbles ancestor directory activities', () => {
+  const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' }).compare
+  const files = {
+    'src/client/index.tsx': 'write',
+    'src/shared/types.ts': 'read',
+    'README.md': 'read',
+  }
+
+  const ancestors = ancestorActivities(files)
+  assert.equal(ancestors.get('src/client'), 'write')
+  assert.equal(ancestors.get('src/shared'), 'read')
+  assert.equal(ancestors.get('src'), 'both')
+
+  const expandedRows = buildRecentTreeRows(files, new Set(), byName)
+  assert.deepEqual(
+    expandedRows.map(row => `${row.depth}:${row.type}:${row.path}`),
+    [
+      '0:directory:src',
+      '1:directory:src/client',
+      '2:file:src/client/index.tsx',
+      '1:directory:src/shared',
+      '2:file:src/shared/types.ts',
+      '0:file:README.md',
+    ],
+  )
+
+  const collapsedRows = buildRecentTreeRows(files, new Set(['src/client']), byName)
+  assert.deepEqual(
+    collapsedRows.map(row => `${row.depth}:${row.type}:${row.path}`),
+    [
+      '0:directory:src',
+      '1:directory:src/client',
+      '1:directory:src/shared',
+      '2:file:src/shared/types.ts',
+      '0:file:README.md',
+    ],
+  )
 })
 
 test('hover-capable file rows drop the ellipsis so the marquee can reveal the suffix', () => {

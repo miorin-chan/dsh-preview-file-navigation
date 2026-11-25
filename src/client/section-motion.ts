@@ -1,4 +1,4 @@
-/** Height motion for opening and closing the workspace files section in the wide sidebar. */
+/** Height motion for transitioning the workspace files section across collapsed, recent, and all views. */
 import { useCallback, useLayoutEffect, useRef } from 'react'
 
 /** Matches the session list toggle of dsh-session-list-toggle and the native header search motion. */
@@ -6,8 +6,11 @@ export const SECTION_MOTION_MS = 180
 /** Keeps the outgoing files painted and inert while the section shrinks. */
 export const SECTION_CLOSING = 'data-closing'
 
+export type SectionView = 'recent' | 'all' | 'collapsed'
+export const NEXT_VIEW = { all: 'collapsed', collapsed: 'recent', recent: 'all' } as const satisfies Record<SectionView, SectionView>
+
 interface Sizes { readonly list: number; readonly section: number }
-interface Pending { readonly next: boolean; readonly sizes: Sizes }
+interface Pending { readonly next: SectionView; readonly sizes: Sizes }
 
 function listOf(section: HTMLElement): HTMLElement | null {
   const list = section.previousElementSibling
@@ -31,13 +34,15 @@ function resize(element: HTMLElement, from: number, to: number, options: Keyfram
 }
 
 /**
- * Toggle `data-open` on the section and animate the session list and the files between their sizes.
+ * Sync `data-open` and `data-view` on the section and animate the session list and files
+ * between their sizes across collapsed, recent, and all views.
  * @param section - The files section placed after the native session list.
- * @param shown - Whether the files are open.
+ * @param view - Current section view mode.
  * @param wide - Whether the sidebar is wide; a width change settles any motion.
- * @returns A function to call just before changing `shown`, which records the current sizes.
+ * @returns A function to call just before changing `view`, recording the current sizes.
  */
-export function useSectionMotion(section: HTMLElement, shown: boolean, wide: boolean): () => void {
+export function useSectionMotion(section: HTMLElement, view: SectionView, wide: boolean): (nextView: SectionView) => void {
+  const shown = view !== 'collapsed' && wide
   const pending = useRef<Pending | null>(null)
   const running = useRef<readonly Animation[]>([])
 
@@ -51,10 +56,11 @@ export function useSectionMotion(section: HTMLElement, shown: boolean, wide: boo
     const before = pending.current
     pending.current = null
     section.toggleAttribute('data-open', shown)
+    section.setAttribute('data-view', view)
     const list = listOf(section)
-    if (before === null || before.next !== shown || list === null || !section.isConnected) return
+    if (before === null || before.next !== view || list === null || !section.isConnected) return
     // Set before the first layout read so the file scroller never loses its box or offset.
-    if (!shown) section.setAttribute(SECTION_CLOSING, '')
+    if (view === 'collapsed') section.setAttribute(SECTION_CLOSING, '')
     const after = measure(section, list)
     const options: KeyframeAnimationOptions = {
       duration: SECTION_MOTION_MS,
@@ -74,17 +80,17 @@ export function useSectionMotion(section: HTMLElement, shown: boolean, wide: boo
       () => { if (running.current === animations) stop() },
       () => { /* A cancelled motion was settled by `stop`. */ },
     )
-  }, [section, shown, stop])
+  }, [section, view, shown, stop])
 
   useLayoutEffect(() => stop, [stop, wide])
 
-  return () => {
+  return (nextView: SectionView) => {
     const list = listOf(section)
     const animate = list !== null && typeof section.animate === 'function'
       && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      && (!shown || CSS.supports('interactivity: inert'))
+      && (nextView !== 'collapsed' || CSS.supports('interactivity: inert'))
     // Measure before stopping so a toggle mid-motion starts from the painted sizes.
-    pending.current = animate ? { next: !shown, sizes: measure(section, list) } : null
+    pending.current = animate ? { next: nextView, sizes: measure(section, list) } : null
     stop()
   }
 }
