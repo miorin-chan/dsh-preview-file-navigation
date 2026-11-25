@@ -341,8 +341,13 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
       <style>{sectionCss + leftFilesCss}</style>
       {root === undefined || session === undefined ? <>
         <header className="left-workspace-files__header">{titleControl}</header>
-        {activated && <div id={paneId} data-left-files-pane="" hidden={!shown}>
-          <p data-left-files-notice="">{t('noSession')}</p>
+        {activated && <div id={paneId} className="dsh-left-files" data-left-files-pane="" hidden={!shown}>
+          <div className="dsh-left-files__scroll">
+            <div className="dsh-left-files__empty" data-left-files-empty="no-session">
+              <IconFolderCloseRegular size={24} />
+              <div role="status">{t('noSession')}</div>
+            </div>
+          </div>
         </div>}
       </> : <LeftFiles
         {...session}

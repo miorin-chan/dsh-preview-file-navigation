@@ -25,7 +25,7 @@ export type Key = typeof keys[number]
 export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt' | 'ru', Record<Key, string>> = {
   en: {
     title: 'Workspace files',
-    noSession: 'Open a workspace session to browse files.',
+    noSession: 'Open a workspace session to browse files',
     search: 'Search files or paths',
     empty: 'No entries',
     loading: 'Loading…',
@@ -46,7 +46,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   zh: {
     title: '工作区文件',
-    noSession: '打开一个工作区会话即可浏览文件。',
+    noSession: '打开一个工作区会话即可浏览文件',
     search: '搜索文件名或路径',
     empty: '没有条目',
     loading: '正在加载…',
@@ -67,7 +67,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   ja: {
     title: 'ワークスペースのファイル',
-    noSession: 'ファイルを閲覧するにはワークスペースのセッションを開いてください。',
+    noSession: 'ファイルを閲覧するにはワークスペースのセッションを開いてください',
     search: 'ファイル名またはパスを検索',
     empty: '項目がありません',
     loading: '読み込み中…',
@@ -88,7 +88,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   de: {
     title: 'Arbeitsbereichsdateien',
-    noSession: 'Öffnen Sie eine Sitzung im Arbeitsbereich, um Dateien zu durchsuchen.',
+    noSession: 'Öffnen Sie eine Sitzung im Arbeitsbereich, um Dateien zu durchsuchen',
     search: 'Dateien oder Pfade suchen',
     empty: 'Keine Einträge',
     loading: 'Wird geladen…',
@@ -109,7 +109,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   es: {
     title: 'Archivos del espacio de trabajo',
-    noSession: 'Abre una sesión del espacio de trabajo para explorar archivos.',
+    noSession: 'Abre una sesión del espacio de trabajo para explorar archivos',
     search: 'Buscar archivos o rutas',
     empty: 'No hay elementos',
     loading: 'Cargando…',
@@ -130,7 +130,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   fr: {
     title: 'Fichiers de l’espace de travail',
-    noSession: 'Ouvrez une session de l’espace de travail pour parcourir les fichiers.',
+    noSession: 'Ouvrez une session de l’espace de travail pour parcourir les fichiers',
     search: 'Rechercher des fichiers ou des chemins',
     empty: 'Aucun élément',
     loading: 'Chargement…',
@@ -151,7 +151,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   pt: {
     title: 'Arquivos do espaço de trabalho',
-    noSession: 'Abra uma sessão do espaço de trabalho para navegar pelos arquivos.',
+    noSession: 'Abra uma sessão do espaço de trabalho para navegar pelos arquivos',
     search: 'Pesquisar arquivos ou caminhos',
     empty: 'Nenhum item',
     loading: 'Carregando…',
@@ -172,7 +172,7 @@ export const dictionaries: Record<'en' | 'zh' | 'ja' | 'de' | 'es' | 'fr' | 'pt'
   },
   ru: {
     title: 'Файлы рабочей области',
-    noSession: 'Откройте сеанс рабочей области для просмотра файлов.',
+    noSession: 'Откройте сеанс рабочей области для просмотра файлов',
     search: 'Поиск файлов или путей',
     empty: 'Нет элементов',
     loading: 'Загрузка…',
