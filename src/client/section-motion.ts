@@ -1,7 +1,7 @@
 /** Height motion for opening and closing the workspace files section in the wide sidebar. */
 import { useCallback, useLayoutEffect, useRef } from 'react'
 
-/** Matches the session list toggle of dsh-workspace-list-toggle and the native header search motion. */
+/** Matches the session list toggle of dsh-session-list-toggle and the native header search motion. */
 export const SECTION_MOTION_MS = 180
 /** Keeps the outgoing files painted and inert while the section shrinks. */
 export const SECTION_CLOSING = 'data-closing'

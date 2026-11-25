@@ -106,7 +106,7 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
    .sectionHeader and .sectionLabel in src/client/rows/WorkspaceBrowser.module.css, and the
    arrow follows .arrow and .chevron in src/client/rows/Rows.module.css, both from
    @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. The arrow box matches the native
-   Sessions header toggle of dsh-workspace-list-toggle. Label and arrow form one
+   Sessions header toggle of dsh-session-list-toggle. Label and arrow form one
    disclosure target, so hover only brightens their color, as .row does in
    src/DisclosureRow.module.css of @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5. */
 .left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: var(--left-files-header-size); }
