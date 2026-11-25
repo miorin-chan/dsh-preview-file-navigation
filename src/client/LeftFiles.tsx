@@ -2,8 +2,8 @@
 import { useCallback, useLayoutEffect, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import {
-  Button, FileTypeIcon, IconCloseFillRegular, IconFolderCloseRegular, IconFolderOpenRegular,
-  IconSearchOutlineRegular, Tooltip, classifyFileType,
+  Button, FileTypeIcon, IconCloseFillRegular, IconFolderCloseRegular, IconFolderOpenOutlineRegular,
+  IconFolderOpenRegular, IconSearchOutlineRegular, Tooltip, classifyFileType,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   ancestorActivities, buildRecentTreeRows, type FileActivity, type TurnFilesMap,
@@ -14,9 +14,10 @@ import { useTitleMarquee } from './useTitleMarquee.js'
 type EntryType = 'directory' | 'file' | 'other'
 type DirectoryEntry = { readonly name: string; readonly type: EntryType }
 type SearchEntry = { readonly path: string; readonly type: EntryType }
-type NoticeKey = 'empty' | 'loading' | 'error' | 'recentEmpty'
+type NoticeKey = 'empty' | 'loading' | 'error'
 type TranslationKey =
   | NoticeKey
+  | 'recentEmpty'
   | 'search'
   | 'retry'
   | 'closeSearch'
@@ -662,9 +663,16 @@ export function LeftFiles({
                 )}
               </div>
             ) : viewMode === 'recent' ? (
-              <div role="tree" aria-label={root}>
-                {rows.length === 0 ? renderNotice('recentEmpty', 0) : rows.map(renderRow)}
-              </div>
+              rows.length === 0 ? (
+                <div className="dsh-left-files__empty" data-left-files-empty="recent">
+                  <IconFolderOpenOutlineRegular size={24} />
+                  <div role="status">{t('recentEmpty')}</div>
+                </div>
+              ) : (
+                <div role="tree" aria-label={root}>
+                  {rows.map(renderRow)}
+                </div>
+              )
             ) : (
               <div role="tree" aria-label={root}>
                 {browseOnlyLines.map(line => {

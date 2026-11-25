@@ -34,6 +34,8 @@
 文件行尾以 6 px 色点标注当前轮次活动（读取用 `--dsw-alias-state-business-primary`，
 修改或读写兼用 `--dsw-alias-state-warn-primary`），折叠目录则以 4 px 冒泡点提示子树内的文件活动，
 并在悬停提示中说明具体读写状态。
+当前轮次尚无文件读写时，「本轮文件」视图沿用会话列表空状态的居中「图标在上、
+文字在下」排版（24 px `--dsw-alias-label-caption` 轮廓文件夹图标配 13 px/20 px `--dsw-alias-label-tertiary` 提示文案）。
 中文界面下，名称里的拉丁、希腊和西里尔字母把 x 高度规范为 0.56 em，并使用 500 字重，使尺寸和灰度都与汉字标签持平。
 规则与校准见[跨文字标题平衡](../../../tools/new-dsh-plugin/README.md#跨文字标题平衡)，
 分段函数复制自工作区 `tools/script-runs/`。

@@ -305,6 +305,27 @@ export const leftFilesCss = `
   color: var(--dsw-alias-label-primary);
 }
 
+/* Match .emptyState in @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5
+   (src/client/rows/WorkspaceBrowser.module.css), with symmetric vertical
+   padding because the recent files section sizes to its content. */
+.dsh-left-files__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 12px 18px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.dsh-left-files__empty > svg {
+  flex: none;
+  margin-block-end: 4px;
+  color: var(--dsw-alias-label-caption);
+}
+
 .dsh-left-files :is(.dsh-left-files__row, .dsh-left-files__scroll):focus-visible {
   outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -1px;

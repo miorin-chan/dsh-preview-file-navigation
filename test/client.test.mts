@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { Script } from 'node:vm'
 import { test } from 'node:test'
 import { leftFilesCss } from '../src/client/LeftFiles.css.ts'
+import { dictionaries } from '../src/client/locale.ts'
 import { scriptRuns } from '../src/client/script-runs.ts'
 import { NEXT_VIEW } from '../src/client/section-motion.ts'
 import { ancestorActivities, buildRecentTreeRows } from '../src/shared/turn-files.ts'
@@ -140,4 +141,30 @@ test('marks alphabetic runs of workspace titles for size and weight balancing, l
     { text: 'my-app ', script: 'alphabetic' },
     { text: '前端', script: 'cjk' },
   ])
+})
+
+test('recent empty state matches the session list icon-over-text layout across all locales', async () => {
+  const emptyRule = leftFilesCss.match(/\.dsh-left-files__empty \{([^}]+)\}/)?.[1] ?? ''
+  assert.match(emptyRule, /display:\s*flex;/)
+  assert.match(emptyRule, /flex-direction:\s*column;/)
+  assert.match(emptyRule, /align-items:\s*center;/)
+  assert.match(emptyRule, /color:\s*var\(--dsw-alias-label-tertiary\);/)
+  assert.match(emptyRule, /font-size:\s*13px;/)
+  assert.match(emptyRule, /line-height:\s*20px;/)
+  assert.match(emptyRule, /text-align:\s*center;/)
+
+  const iconRule = leftFilesCss.match(/\.dsh-left-files__empty > svg \{([^}]+)\}/)?.[1] ?? ''
+  assert.match(iconRule, /margin-block-end:\s*4px;/)
+  assert.match(iconRule, /color:\s*var\(--dsw-alias-label-caption\);/)
+
+  const source = await readFile(new URL('../src/client/LeftFiles.tsx', import.meta.url), 'utf8')
+  assert.match(source, /<div className="dsh-left-files__empty" data-left-files-empty="recent">[\s\S]*?<IconFolderOpenOutlineRegular size=\{24\} \/>[\s\S]*?<div role="status">\{t\('recentEmpty'\)\}<\/div>/)
+  assert.doesNotMatch(source, /renderNotice\('recentEmpty'/)
+
+  const locales = Object.entries(dictionaries)
+  assert.equal(locales.length, 8)
+  for (const [locale, dict] of locales) {
+    assert.ok(dict.recentEmpty.length > 0, `${locale} recentEmpty must not be empty`)
+    assert.doesNotMatch(dict.recentEmpty, /[.。]$/, `${locale} recentEmpty should omit trailing sentence period`)
+  }
 })
