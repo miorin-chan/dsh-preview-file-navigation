@@ -23,7 +23,7 @@ export interface LeftFilesProps {
   readonly search: (query: string, signal: AbortSignal) => Promise<readonly SearchEntry[]>
   /** Open a workspace-relative file path and report whether a preview was available. */
   readonly open: (relativePath: string) => boolean
-  readonly titleButton: ReactNode
+  readonly titleControl: ReactNode
   readonly wide: boolean
   readonly shown: boolean
   readonly activated: boolean
@@ -194,11 +194,11 @@ function LoadEntries<T>({ target, load, settle }: {
 }
 
 /**
- * Draw the header search and the file navigator. The sidebar supplies the title button.
+ * Draw the header search and the file navigator. The sidebar supplies the title control.
  * @param props - Workspace and adapter callbacks for this sidebar.
  * @returns The file navigator and its header.
  */
-export function LeftFiles({ root, list, search, open, titleButton, wide, shown, activated, paneId, showFiles, t }: LeftFilesProps) {
+export function LeftFiles({ root, list, search, open, titleControl, wide, shown, activated, paneId, showFiles, t }: LeftFilesProps) {
   const [workspaces, setWorkspaces] = useState<ReadonlyMap<string, Workspace>>(() => new Map())
   const [openFailed, setOpenFailed] = useState(false)
   const workspace = workspaces.get(root) ?? initialWorkspace
@@ -494,9 +494,9 @@ export function LeftFiles({ root, list, search, open, titleButton, wide, shown, 
         }
       }}
     >
-      <div className="left-workspace-files__header" data-search-open={searchVisible || undefined}>
+      <header className="left-workspace-files__header" data-search-open={searchVisible || undefined}>
         <div className="left-workspace-files__title-slot" {...{ inert: searchVisible ? '' : undefined }}>
-          {titleButton}
+          {titleControl}
         </div>
         <div className="left-workspace-files__search" ref={searchBox} role={searchVisible ? 'search' : undefined}>
           <Tooltip label={t('search')} delayMs={500} side={wide ? 'bottom' : 'right'} disabled={searchVisible} portal>
@@ -530,7 +530,7 @@ export function LeftFiles({ root, list, search, open, titleButton, wide, shown, 
             <IconCloseFillRegular size={16} />
           </button>
         </div>
-      </div>
+      </header>
       {activated && (
         <div id={paneId} className="dsh-left-files" data-left-files-pane="" hidden={!shown}>
           <div

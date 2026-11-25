@@ -102,23 +102,29 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 }
 .left-workspace-files[data-rail] .left-workspace-files__trigger { inline-size: 36px; padding: 0; }
 .left-workspace-files__icon { color: var(--dsw-alias-label-tertiary); }
-/* The wide header reads as a sidebar section header, not a row: the label follows
-   .sectionHeader and .sectionLabel in src/client/rows/WorkspaceBrowser.module.css, and the
-   arrow follows .arrow and .chevron in src/client/rows/Rows.module.css, both from
-   @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. The arrow box matches the native
-   Sessions header toggle of dsh-session-list-toggle. Label and arrow form one
-   disclosure target, so hover only brightens their color, as .row does in
-   src/DisclosureRow.module.css of @deepseek-ai/dsh-client-ui-primitives 0.2.2-rc.5. */
+/* Match the heading box and disclosure of Watched sessions and Background jobs.
+   The label and arrow follow .sectionLabel in src/client/rows/WorkspaceBrowser.module.css
+   and .arrow / .chevron in src/client/rows/Rows.module.css of
+   @deepseek-ai/dsh-client-ui-workspace 0.2.2-rc.5. */
 .left-workspace-files:not([data-rail]) .left-workspace-files__header { block-size: var(--left-files-header-size); }
-.left-workspace-files:not([data-rail]) .left-workspace-files__trigger {
+.left-workspace-files__heading {
+  display: flex;
+  inline-size: fit-content;
+  min-inline-size: 0;
+  max-inline-size: calc(100% - var(--dsh-sidebar-row-padding, 12px) + 5px);
+  margin: 0;
+  margin-inline-start: calc(var(--dsh-sidebar-row-padding, 12px) - 5px);
+  font: inherit;
+}
+.left-workspace-files__heading .left-workspace-files__trigger {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  max-inline-size: calc(100% - var(--dsh-sidebar-row-padding, 12px) + 5px);
+  min-inline-size: 0;
+  max-inline-size: 100%;
   block-size: 24px;
   margin: 0;
-  margin-inline-start: calc(var(--dsh-sidebar-row-padding, 12px) - 5px);
   padding: 0;
   padding-inline-start: 4px;
   border: 0;
@@ -255,19 +261,20 @@ function WorkspaceFiles({ wide, useMountedSession, useSessions, useWorkspaces, c
       )}
     </Tooltip>
   )
+  const titleControl = wide ? <h2 className="left-workspace-files__heading">{titleButton}</h2> : titleButton
   return <>
     <div className="left-workspace-files-anchor" ref={anchor} />
     {createPortal(<>
       <style>{sectionCss + leftFilesCss}</style>
       {root === undefined || session === undefined ? <>
-        <div className="left-workspace-files__header">{titleButton}</div>
+        <header className="left-workspace-files__header">{titleControl}</header>
         {activated && <div id={paneId} data-left-files-pane="" hidden={!shown}>
           <p data-left-files-notice="">{t('noSession')}</p>
         </div>}
       </> : <LeftFiles
         {...session}
         root={root}
-        titleButton={titleButton}
+        titleControl={titleControl}
         wide={wide}
         shown={shown}
         activated={activated}
