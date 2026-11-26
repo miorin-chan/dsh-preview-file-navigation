@@ -26,11 +26,7 @@
     "AGENTS.local.md",
     "docs/README.md",
     "README.zh.md",
-    "LICENSE",
-    "src",
-    "scripts",
-    "tsconfig.json",
-    "tsconfig.tools.json"
+    "LICENSE"
   ],
   "engines": {
     "dsh": ">=0.2.2-rc.5"
@@ -48,7 +44,8 @@
         "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-sidebar",
         "@deepseek-ai/dsh-client-ui-sidebar-right",
-        "@deepseek-ai/dsh-client-ui-session"
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-slots"
       ]
     }
   },
