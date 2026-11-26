@@ -191,3 +191,43 @@ test('built host plugin registers summary-excluded projection with valid schemas
   const parsedView = def.wire.viewSchema.parse(def.wire.view(parsedState))
   assert.deepEqual(parsedView, { 'src/index.ts': 'write' })
 })
+
+test('built host plugin disposes registered projection on unload and when unloaded before resolve', async () => {
+  const host = await import('../index.js')
+
+  let disposedAfter = 0
+  const cleanupsAfter = []
+  host.apply({
+    inject(services, callback) {
+      assert.deepEqual(services, ['sessionProjections'])
+      callback({
+        effect(fn) { cleanupsAfter.push(fn()) },
+        sessionProjections: {
+          register: async () => ({ dispose: async () => { disposedAfter += 1 } }),
+        },
+      })
+    },
+  })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(cleanupsAfter.length, 1)
+  cleanupsAfter[0]()
+  assert.equal(disposedAfter, 1)
+
+  let disposedEarly = 0
+  const deferred = Promise.withResolvers()
+  const cleanupsEarly = []
+  host.apply({
+    inject(_services, callback) {
+      callback({
+        effect(fn) { cleanupsEarly.push(fn()) },
+        sessionProjections: {
+          register: () => deferred.promise,
+        },
+      })
+    },
+  })
+  cleanupsEarly[0]()
+  deferred.resolve({ dispose: async () => { disposedEarly += 1 } })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(disposedEarly, 1)
+})

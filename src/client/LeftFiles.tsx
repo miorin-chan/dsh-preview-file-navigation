@@ -398,7 +398,7 @@ export function LeftFiles({
     }
     const target = pendingFocus.current
     if (target?.root === root && focusWithin.current && focusRow(target.path)) pendingFocus.current = null
-  })
+  }, [shown, root, query, view, tabPath, rows])
 
   function rememberScroll(scroller: HTMLDivElement): void {
     const offsets = scrollOffsets.current.get(root) ?? { browse: 0, recent: 0, search: 0 }
