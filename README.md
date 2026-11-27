@@ -28,8 +28,9 @@ Choose one installation.
 
 1. Open a session with a working directory.
    The workspace section below the session list opens in the current-turn view by default,
-   showing a pruned tree of files read or edited during the current turn along
-   with a trailing read/write indicator dot (collapsed folders also show a smaller dot when descendants were touched).
+   showing a pruned tree of files read or edited during the current turn.
+   A trailing hollow, filled, or half-filled circle marks a file as read, edited, or both,
+   and collapsed folders show a smaller marker of the same shape when descendants were touched.
 2. Select the workspace name or triangle button to cycle
    through **current-turn files → all workspace files → collapsed**.
 3. Select the magnifying glass in the workspace header to open **Search files or paths**.

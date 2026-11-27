@@ -205,28 +205,54 @@ export const leftFilesCss = `
   min-inline-size: 0;
 }
 
+/* Shape carries the activity so it survives colour-blindness and forced colours:
+   read is a hollow ring, write a filled disc, and both a ring whose lower half is filled.
+   Colour repeats the distinction, with every written state in the warn tone. */
 .dsh-left-files__activity {
+  --left-files-activity-ring: 1.5px;
+  box-sizing: border-box;
   flex: none;
   align-self: center;
-  inline-size: 6px;
-  block-size: 6px;
+  inline-size: 7px;
+  block-size: 7px;
   margin-inline-start: 6px;
+  border: var(--left-files-activity-ring) solid currentColor;
   border-radius: 50%;
+  forced-color-adjust: none;
 }
 
 .dsh-left-files__activity[data-activity-scope='ancestor'] {
-  inline-size: 4px;
-  block-size: 4px;
+  --left-files-activity-ring: 1px;
+  inline-size: 5px;
+  block-size: 5px;
   opacity: 0.85;
 }
 
 .dsh-left-files__activity[data-activity='read'] {
-  background: var(--dsw-alias-state-business-primary);
+  color: var(--dsw-alias-state-business-primary);
 }
 
 .dsh-left-files__activity[data-activity='write'],
 .dsh-left-files__activity[data-activity='both'] {
-  background: var(--dsw-alias-state-warn-primary);
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.dsh-left-files__activity[data-activity='write'] {
+  background: currentColor;
+}
+
+.dsh-left-files__activity[data-activity='both'] {
+  background: linear-gradient(to top, currentColor 50%, transparent 50%);
+}
+
+@media (forced-colors: active) {
+  .dsh-left-files__activity { color: CanvasText; }
+}
+
+/* In the current-turn view every row was touched, so read-only rows step back one grey level
+   and the rows that the agent changed stand out. */
+.dsh-left-files__row[data-read-only] > .dsh-left-files__label {
+  color: var(--dsw-alias-label-secondary);
 }
 
 .dsh-left-files__name,

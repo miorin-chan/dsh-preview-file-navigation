@@ -126,11 +126,13 @@ function markedText(text: string, matches: Iterable<RegExpMatchArray>, offset = 
   return cursor === 0 ? text : [...parts, text.slice(cursor)]
 }
 
-function FileRow({ row, root, shown, expanded, activity, activityScope, activityLabel, query, matchPattern, tabIndex, onFocus, onClick }: {
+function FileRow({ row, root, shown, expanded, readOnly, activity, activityScope, activityLabel, query, matchPattern, tabIndex, onFocus, onClick }: {
   readonly row: Row
   readonly root: string
   readonly shown: boolean
   readonly expanded: boolean | undefined
+  /** Whether the row, or every touched file below it, was only read this turn. */
+  readonly readOnly: boolean
   readonly activity: FileActivity | undefined
   readonly activityScope: 'file' | 'ancestor' | undefined
   readonly activityLabel: string | undefined
@@ -174,6 +176,7 @@ function FileRow({ row, root, shown, expanded, activity, activityScope, activity
       title={rowTitle}
       data-path={row.path}
       data-type={row.type}
+      data-read-only={readOnly || undefined}
       tabIndex={tabIndex}
       style={{ '--left-files-depth': row.depth } as CSSProperties}
       onFocus={onFocus}
@@ -559,6 +562,7 @@ export function LeftFiles({
     const activityLabel = activity !== undefined && activityScope !== undefined
       ? activityLabelFor(activity, activityScope, t)
       : undefined
+    const subtreeActivity = row.type === 'file' ? turnFiles[row.path] : ancestors.get(row.path)
     return (
       <FileRow
         key={`row:${row.path}`}
@@ -566,6 +570,7 @@ export function LeftFiles({
         root={root}
         shown={shown}
         expanded={isExpanded}
+        readOnly={view === 'recent' && subtreeActivity === 'read'}
         activity={activity}
         activityScope={activityScope}
         activityLabel={activityLabel}

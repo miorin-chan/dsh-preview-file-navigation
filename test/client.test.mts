@@ -70,10 +70,26 @@ test('tree lines draw a native hairline for every ancestor level, through each a
   assert.match(leftFilesCss, /\.dsh-left-files__row \{\s*--left-files-content-start: 16px;/)
 })
 
-test('activity dots use DSH semantic state tokens and support collapsed ancestor indicators', () => {
-  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='read'\]\s*\{\s*background:\s*var\(--dsw-alias-state-business-primary\);/)
-  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='write'\],\s*\.dsh-left-files__activity\[data-activity='both'\]\s*\{\s*background:\s*var\(--dsw-alias-state-warn-primary\);/)
-  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity-scope='ancestor'\]\s*\{/)
+test('activity markers distinguish read, write, and both by shape as well as DSH state colour', () => {
+  const rule = (selector: string) => leftFilesCss.match(new RegExp(`(?<!,)\\n${selector.replace(/[[\]()]/g, '\\$&')} \\{([^}]+)\\}`))?.[1] ?? ''
+  const base = rule(".dsh-left-files__activity")
+  assert.match(base, /border: var\(--left-files-activity-ring\) solid currentColor;/)
+  assert.match(base, /box-sizing: border-box;/)
+  assert.match(rule(".dsh-left-files__activity[data-activity='read']"), /color: var\(--dsw-alias-state-business-primary\);/)
+  assert.doesNotMatch(rule(".dsh-left-files__activity[data-activity='read']"), /background/)
+  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='write'\],\s*\.dsh-left-files__activity\[data-activity='both'\]\s*\{\s*color:\s*var\(--dsw-alias-state-warn-primary\);/)
+  assert.match(rule(".dsh-left-files__activity[data-activity='write']"), /background: currentColor;/)
+  assert.match(rule(".dsh-left-files__activity[data-activity='both']"), /background: linear-gradient\(to top, currentColor 50%, transparent 50%\);/)
+  // Regression: write and both once shared one filled orange dot and were indistinguishable.
+  assert.notEqual(rule(".dsh-left-files__activity[data-activity='write']"), rule(".dsh-left-files__activity[data-activity='both']"))
+  assert.match(rule(".dsh-left-files__activity[data-activity-scope='ancestor']"), /--left-files-activity-ring: 1px;/)
+})
+
+test('read-only rows step back one grey level while written rows keep the primary label', () => {
+  assert.match(leftFilesCss, /\.dsh-left-files__row\[data-read-only\] > \.dsh-left-files__label \{\s*color: var\(--dsw-alias-label-secondary\);/)
+  const ancestors = ancestorActivities({ 'docs/a.md': 'read', 'src/a.ts': 'read', 'src/b.ts': 'write' })
+  assert.equal(ancestors.get('docs'), 'read')
+  assert.equal(ancestors.get('src'), 'both')
 })
 
 test('section tri-state cycles all -> collapsed -> recent -> all and uses hollow triangle for recent', async () => {
