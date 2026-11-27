@@ -202,7 +202,6 @@ function FileRow({ row, root, shown, expanded, readOnly, activity, activityScope
         <span
           className="dsh-left-files__activity"
           data-activity={activity}
-          data-activity-scope={activityScope}
           title={activityLabel}
           aria-label={activityLabel}
         />

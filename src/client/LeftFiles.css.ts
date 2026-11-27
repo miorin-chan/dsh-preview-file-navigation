@@ -206,43 +206,24 @@ export const leftFilesCss = `
 }
 
 /* Shape carries the activity so it survives colour-blindness and forced colours:
-   read is a hollow ring, write a filled disc, and both a ring whose lower half is filled.
-   Colour repeats the distinction, with every written state in the warn tone. */
+   a file that was only read is a hollow ring, and any write fills the disc.
+   Files and collapsed folders share one size and the interface accent colour. */
 .dsh-left-files__activity {
-  --left-files-activity-ring: 1.5px;
   box-sizing: border-box;
   flex: none;
   align-self: center;
   inline-size: 7px;
   block-size: 7px;
   margin-inline-start: 6px;
-  border: var(--left-files-activity-ring) solid currentColor;
+  border: 1.5px solid currentColor;
   border-radius: 50%;
-  forced-color-adjust: none;
-}
-
-.dsh-left-files__activity[data-activity-scope='ancestor'] {
-  --left-files-activity-ring: 1px;
-  inline-size: 5px;
-  block-size: 5px;
-  opacity: 0.85;
-}
-
-.dsh-left-files__activity[data-activity='read'] {
   color: var(--dsw-alias-state-business-primary);
+  forced-color-adjust: none;
 }
 
 .dsh-left-files__activity[data-activity='write'],
 .dsh-left-files__activity[data-activity='both'] {
-  color: var(--dsw-alias-state-warn-primary);
-}
-
-.dsh-left-files__activity[data-activity='write'] {
   background: currentColor;
-}
-
-.dsh-left-files__activity[data-activity='both'] {
-  background: linear-gradient(to top, currentColor 50%, transparent 50%);
 }
 
 @media (forced-colors: active) {

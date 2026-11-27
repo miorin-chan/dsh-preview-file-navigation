@@ -70,19 +70,17 @@ test('tree lines draw a native hairline for every ancestor level, through each a
   assert.match(leftFilesCss, /\.dsh-left-files__row \{\s*--left-files-content-start: 16px;/)
 })
 
-test('activity markers distinguish read, write, and both by shape as well as DSH state colour', () => {
+test('activity markers share one size and accent colour, hollow for read and filled for any write', () => {
   const rule = (selector: string) => leftFilesCss.match(new RegExp(`(?<!,)\\n${selector.replace(/[[\]()]/g, '\\$&')} \\{([^}]+)\\}`))?.[1] ?? ''
   const base = rule(".dsh-left-files__activity")
-  assert.match(base, /border: var\(--left-files-activity-ring\) solid currentColor;/)
+  assert.match(base, /border: 1\.5px solid currentColor;/)
   assert.match(base, /box-sizing: border-box;/)
-  assert.match(rule(".dsh-left-files__activity[data-activity='read']"), /color: var\(--dsw-alias-state-business-primary\);/)
-  assert.doesNotMatch(rule(".dsh-left-files__activity[data-activity='read']"), /background/)
-  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='write'\],\s*\.dsh-left-files__activity\[data-activity='both'\]\s*\{\s*color:\s*var\(--dsw-alias-state-warn-primary\);/)
-  assert.match(rule(".dsh-left-files__activity[data-activity='write']"), /background: currentColor;/)
-  assert.match(rule(".dsh-left-files__activity[data-activity='both']"), /background: linear-gradient\(to top, currentColor 50%, transparent 50%\);/)
-  // Regression: write and both once shared one filled orange dot and were indistinguishable.
-  assert.notEqual(rule(".dsh-left-files__activity[data-activity='write']"), rule(".dsh-left-files__activity[data-activity='both']"))
-  assert.match(rule(".dsh-left-files__activity[data-activity-scope='ancestor']"), /--left-files-activity-ring: 1px;/)
+  assert.match(base, /color: var\(--dsw-alias-state-business-primary\);/)
+  assert.match(leftFilesCss, /\.dsh-left-files__activity\[data-activity='write'\],\s*\.dsh-left-files__activity\[data-activity='both'\]\s*\{\s*background: currentColor;\s*\}/)
+  // Regression: collapsed folders drew a smaller marker, and written files switched to the warn colour.
+  assert.doesNotMatch(leftFilesCss, /data-activity-scope/)
+  assert.doesNotMatch(leftFilesCss, /\.dsh-left-files__activity[^{]*\{[^}]*warn-primary/)
+  assert.doesNotMatch(leftFilesCss, /\.dsh-left-files__activity\[data-activity='read'\]/)
 })
 
 test('read-only rows step back one grey level while written rows keep the primary label', () => {
