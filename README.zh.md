@@ -2,31 +2,21 @@
 
 [English](README.md)
 
-在左侧边栏浏览当前会话的工作目录，并查看本轮次中 Agent 读取或修改的文件。
-选择文件后，右侧边栏会打开内置预览。
+在左侧栏会话列表下方浏览当前会话的工作目录与本轮 Agent 读写过的文件，点击文件即可打开右侧内置预览。
+
+- 点击工作区名称或三角按钮，按 **本轮文件 → 全部文件 → 收起** 三态循环切换（空心圆表示只读过，实心圆表示修改过）。
+- 点击右侧放大镜可 **搜索文件名或路径**，按 `Esc` 或搜索框关闭按钮恢复先前的目录视图。
+
+需要 DeepSeek Harness `0.2.2-rc.5`（Web 客户端）。
+本插件已包含于 **工作区模块化改良计划**（`@miorin/dsh-atlas-workspace`），两者请勿同时安装。
+单独安装：在本目录运行 `pnpm install --frozen-lockfile` 后，
+从 **插件 → 添加插件** 选择本目录（安装期间保留目录路径不变）。
 
 ## 实拍截图
 
-![工作区文件搜索列出与 release 匹配的路径](docs/assets/screenshots/main-light.png)
+| | 浅色 | 深色 |
+| --- | --- | --- |
+| 工作区文件入口 | ![工作区文件入口（浅色）](docs/assets/screenshots/entry-light.png) | ![工作区文件入口（深色）](docs/assets/screenshots/entry-dark.png) |
+| 文件搜索结果 | ![工作区文件搜索列出与 release 匹配的路径（浅色）](docs/assets/screenshots/main-light.png) | ![工作区文件搜索列出与 release 匹配的路径（深色）](docs/assets/screenshots/main-dark.png) |
 
-- 工作区文件入口 · [浅色](docs/assets/screenshots/entry-light.png) · [深色](docs/assets/screenshots/entry-dark.png)
-- 文件搜索结果 · [浅色](docs/assets/screenshots/main-light.png) · [深色](docs/assets/screenshots/main-dark.png)
-
-## 安装
-
-此本地插件包仅支持 **DeepSeek Harness 0.2.2-rc.5** 的 Web 客户端。
-在新检出的目录中运行 `pnpm install --frozen-lockfile` 安装依赖并构建插件。
-然后在 **插件** → **添加插件** 中选择该目录，并在安装期间保留其位置。
-[Workspace Atlas](../dsh-atlas-workspace/README.zh.md) 已包含「工作区文件」，选择一种方式安装即可。
-
-## 使用
-
-1. 打开一个有工作目录的会话。
-   会话列表下方的工作区默认展开为「本轮文件」视图，以裁剪后的目录树展示当前轮次读取或修改过的文件，
-   并在行尾以空心圆标出只读过的文件、以实心圆标出修改过的文件（折叠目录也会冒泡显示同样的标记）。
-2. 点击工作区名称或三角按钮，按 **本轮文件 → 全部文件 → 收起** 三态循环切换。
-3. 点击工作区标题右侧的放大镜，打开 **搜索文件名或路径**。
-   选择文件即可打开内置预览，选择搜索结果中的目录可在树中定位它。
-4. 按 Esc 或点击搜索框内的关闭按钮可恢复先前的目录视图。
-
-[开发与兼容性说明](docs/README.md)
+[项目文档](docs/README.md)
