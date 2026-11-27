@@ -82,28 +82,22 @@ div:has(> [data-slot="sidebar.footer.action"] > .left-workspace-files-anchor > .
 [data-sidebar-scrollport] :has(> [data-sidebar-list-area] + .left-workspace-files[data-open]) {
   block-size: 100%;
 }
-[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-view='all']),
-[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-searching]) {
-  flex: 0 1 auto;
-  max-block-size: 50%;
+/* Both panes share the height left after the workspace header (and watched sessions).
+   Capping a pane at max-content lets it shrink to its rows so the sibling can claim
+   unused space, while equal flex-grow splits the space evenly when both overflow. */
+[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open]) {
+  flex: 1 1 0;
+  min-block-size: 0;
+  max-block-size: max-content;
 }
-[data-sidebar-list-area] + .left-workspace-files[data-open][data-view='all'],
-[data-sidebar-list-area] + .left-workspace-files[data-open][data-searching] {
+[data-sidebar-list-area] + .left-workspace-files[data-open] {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   min-block-size: 0;
 }
-[data-sidebar-scrollport] [data-sidebar-list-area]:has(+ .left-workspace-files[data-open][data-view='recent']:not([data-searching])) {
-  flex: 0 1 auto;
-  min-block-size: 0;
-}
 [data-sidebar-list-area] + .left-workspace-files[data-open][data-view='recent']:not([data-searching]) {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  max-block-size: 50%;
-  min-block-size: 0;
+  max-block-size: max-content;
 }
 /* While closing, the section rests at its header size and the files stay painted but
    inert, so section-motion.ts can shrink them away. */

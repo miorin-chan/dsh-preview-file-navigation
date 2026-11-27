@@ -96,11 +96,13 @@ test('section tri-state cycles all -> collapsed -> recent -> all and uses hollow
   assert.match(source, /\.left-workspace-files__trigger\[data-view='recent'\] \.left-workspace-files__arrow path \{\s*fill-opacity:\s*0;\s*stroke-opacity:\s*1;\s*\}/)
 })
 
-test('recent view preserves a definite sidebar height and does not collapse the session list to zero basis', async () => {
+test('sidebar panes preserve a definite height, share unused space, and split evenly when both overflow', async () => {
   const source = await readFile(new URL('../src/client/index.tsx', import.meta.url), 'utf8')
   assert.match(source, /\[data-sidebar-scrollport\] :has\(> \[data-sidebar-list-area\] \+ \.left-workspace-files\[data-open\]\) \{\s*block-size:\s*100%;\s*\}/)
-  assert.match(source, /\[data-sidebar-scrollport\] \[data-sidebar-list-area\]:has\(\+ \.left-workspace-files\[data-open\]\[data-view='recent'\]:not\(\[data-searching\]\)\) \{\s*flex:\s*0 1 auto;\s*min-block-size:\s*0;\s*\}/)
-  assert.match(source, /\[data-sidebar-list-area\] \+ \.left-workspace-files\[data-open\]\[data-view='recent'\]:not\(\[data-searching\]\) \{\s*display:\s*flex;\s*flex:\s*0 0 auto;\s*flex-direction:\s*column;\s*max-block-size:\s*50%;\s*min-block-size:\s*0;\s*\}/)
+  assert.match(source, /\[data-sidebar-scrollport\] \[data-sidebar-list-area\]:has\(\+ \.left-workspace-files\[data-open\]\) \{\s*flex:\s*1 1 0;\s*min-block-size:\s*0;\s*max-block-size:\s*max-content;\s*\}/)
+  assert.match(source, /\[data-sidebar-list-area\] \+ \.left-workspace-files\[data-open\] \{\s*display:\s*flex;\s*flex:\s*1 1 0;\s*flex-direction:\s*column;\s*min-block-size:\s*0;\s*\}/)
+  assert.match(source, /\[data-sidebar-list-area\] \+ \.left-workspace-files\[data-open\]\[data-view='recent'\]:not\(\[data-searching\]\) \{\s*max-block-size:\s*max-content;\s*\}/)
+  assert.doesNotMatch(source, /max-block-size:\s*50%;/)
   assert.match(source, /\.left-workspace-files \[data-left-files-pane\] \{\s*flex:\s*1 1 auto;\s*min-height:\s*0;\s*display:\s*flex;\s*flex-direction:\s*column;\s*\}/)
 })
 
