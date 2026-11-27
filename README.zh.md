@@ -16,6 +16,7 @@
 
 | | 浅色 | 深色 |
 | --- | --- | --- |
+| 本轮读写文件 | ![工作区文件树显示本轮只读（空心圆）与修改（实心圆）标记（浅色）](docs/assets/screenshots/turn-files-light.png) | ![工作区文件树显示本轮只读（空心圆）与修改（实心圆）标记（深色）](docs/assets/screenshots/turn-files-dark.png) |
 | 工作区文件入口 | ![工作区文件入口（浅色）](docs/assets/screenshots/entry-light.png) | ![工作区文件入口（深色）](docs/assets/screenshots/entry-dark.png) |
 | 文件搜索结果 | ![工作区文件搜索列出与 release 匹配的路径（浅色）](docs/assets/screenshots/main-light.png) | ![工作区文件搜索列出与 release 匹配的路径（深色）](docs/assets/screenshots/main-dark.png) |
 

@@ -21,6 +21,7 @@ The screenshots show the Chinese interface.
 
 | | Light | Dark |
 | --- | --- | --- |
+| Current-turn files | ![Workspace files tree showing current-turn read and edited markers (light theme)](docs/assets/screenshots/turn-files-light.png) | ![Workspace files tree showing current-turn read and edited markers (dark theme)](docs/assets/screenshots/turn-files-dark.png) |
 | Workspace files header | ![Workspace files header (light theme)](docs/assets/screenshots/entry-light.png) | ![Workspace files header (dark theme)](docs/assets/screenshots/entry-dark.png) |
 | File search results | ![Workspace file search filtered to paths matching release (light theme)](docs/assets/screenshots/main-light.png) | ![Workspace file search filtered to paths matching release (dark theme)](docs/assets/screenshots/main-dark.png) |
 
