@@ -5,6 +5,13 @@
 在左侧边栏浏览当前会话的工作目录，并查看本轮次中 Agent 读取或修改的文件。
 选择文件后，右侧边栏会打开内置预览。
 
+## 实拍截图
+
+![工作区文件搜索列出与 release 匹配的路径](docs/assets/screenshots/main-light.png)
+
+- 工作区文件入口 · [浅色](docs/assets/screenshots/entry-light.png) · [深色](docs/assets/screenshots/entry-dark.png)
+- 文件搜索结果 · [浅色](docs/assets/screenshots/main-light.png) · [深色](docs/assets/screenshots/main-dark.png)
+
 ## 安装
 
 此本地插件包仅支持 **DeepSeek Harness 0.2.2-rc.5** 的 Web 客户端。

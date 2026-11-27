@@ -6,6 +6,16 @@ Browse the current session’s working directory and the files the agent read or
 in the current turn from the left sidebar.
 Select a file to open it in the built-in right sidebar preview.
 
+## Screenshots
+
+The DeepSeek Harness interface is shown in Chinese.
+
+![Workspace file search filtered to paths matching release](docs/assets/screenshots/main-light.png)
+
+- Workspace files header · [Light](docs/assets/screenshots/entry-light.png) ·
+  [Dark](docs/assets/screenshots/entry-dark.png)
+- File search results · [Light](docs/assets/screenshots/main-light.png) · [Dark](docs/assets/screenshots/main-dark.png)
+
 ## Install
 
 This local bundle requires exactly **DeepSeek Harness 0.2.2-rc.5** and its Web client.
