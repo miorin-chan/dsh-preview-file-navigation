@@ -4,8 +4,17 @@ This file supplements [AGENTS.md](AGENTS.md) with rules for the Workspace files 
 
 ## Documentation and localization
 
-- Maintain the [English README](README.md) and [Chinese README](README.zh.md) together.
-  Keep development and compatibility notes in the [docs index](docs/README.md).
+- `README.md` is for users: installation, usage, commands, and limits.
+  Provide `README.zh.md` as its Chinese version.
+- [DESIGN.md](DESIGN.md) is the product design entry point.
+  Read it before changing product behavior.
+  It explains the user problem, intended experience, scope, and observable success criteria.
+- Keep implementation contracts, proposals, and verification records separate from the product design.
+  Use [docs/README.md](docs/README.md) as the index.
+  Verification records say what was actually tested.
+- `CHANGELOG.md` records changes by version.
+  Keep progress, schedules, and debugging notes in task records.
+  Before closing a task, update the product design with approved decisions and link back to it.
 - Keep Plugin Manager copy in `locale/*.json` and runtime copy in [the client dictionary](src/client/locale.ts).
   Update all eight locales (`en`, `zh`, `ja`, `de`, `es`, `fr`, `pt`, and `ru`).
 - Keep the plugin detail page short and easy to scan.

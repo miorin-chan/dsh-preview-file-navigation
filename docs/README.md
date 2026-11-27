@@ -1,5 +1,7 @@
 # 项目文档
 
+- [产品设计](../DESIGN.md)：用户问题、交互体验、适用边界与成功标准。
+
 [使用与安装](../README.zh.md) · [English README](../README.md) · [开发约定](../AGENTS.local.md)
 
 ## 实现与兼容性
