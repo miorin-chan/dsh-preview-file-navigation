@@ -24,8 +24,8 @@
 目录每级缩进随文件区宽度从 180 px 时的 10 px 线性增至 260 px 时的 13 px，总缩进以文件区宽度的 30% 为上限。
 
 缩进引导线沿
-用[预览侧栏文件导航补丁](../../../tasks/2026-11-22-preview-file-navigation/out/preview-file-navigation.patch)中紧
-凑目录树的样式：0.5 px 的 `--dsw-alias-border-l3` 竖线穿过祖先目录图标的中心。
+用[预览侧栏文件导航补丁](../../../archive/tasks/2026/2026-11-22-preview-file-navigation/out/preview-file-navigation.patch)中
+紧凑目录树的样式：0.5 px 的 `--dsw-alias-border-l3` 竖线穿过祖先目录图标的中心。
 目录树按平铺行渲染，所以每行为全部祖先层级各画一段线，相邻行的线段连成贯穿整个子树的竖线。
 加载、空目录和出错提示比文件行少缩进 10 px，因此不画所属目录那一级的线，只延续更上层的线。
 总缩进达到上限后，更深层级的线被截去，不会压到图标上。
